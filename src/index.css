@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --paper-bg: #f7f6f2;
+    --paper-card: #ffffff;
+    --paper-border: #d4d4d0;
+    --paper-border-focus: #1d4ed8;
+    --paper-text: #1c1917;
+    --paper-text-muted: #78716c;
+    --paper-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --paper-sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    background-color: var(--paper-bg);
+    color: var(--paper-text);
+    font-family: var(--paper-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Números tabulares alineados en columnas numéricas y telemetría */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  code, kbd, samp, pre, .font-mono {
+    font-family: var(--paper-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
