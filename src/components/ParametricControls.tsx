@@ -1,6 +1,6 @@
 import React from 'react'
-import { RotateCcw, Sliders, Info } from 'lucide-react'
-import type { BusinessProblem } from '../types/problem'
+import { RotateCcw, Sliders, Info, Lock } from 'lucide-react'
+import type { BusinessProblem, AppMode } from '../types/problem'
 import type { ParametricCoefficients, DynamicAnalysis } from '../services/parametricEngine'
 import { LatexRenderer } from './LatexRenderer'
 
@@ -10,6 +10,8 @@ interface ParametricControlsProps {
   onChangeCoefficients: (newCoeffs: ParametricCoefficients) => void
   onResetCoefficients: () => void
   analysis: DynamicAnalysis
+  appMode?: AppMode
+  isUnlocked?: boolean
 }
 
 export const ParametricControls: React.FC<ParametricControlsProps> = ({
@@ -17,9 +19,12 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
   coefficients,
   onChangeCoefficients,
   onResetCoefficients,
-  analysis
+  analysis,
+  appMode = 'docente',
+  isUnlocked = false
 }) => {
   const meta = problem.parametricMeta
+  const isChallengeHidden = appMode === 'estudiante' && !isUnlocked
 
   const handleUpdate = (key: keyof ParametricCoefficients, val: number) => {
     onChangeCoefficients({
@@ -29,7 +34,7 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
   }
 
   return (
-    <div className="w-full bg-white border border-[#d4d4d0] p-4 sm:p-5 shadow-xs space-y-4 font-sans text-stone-900">
+    <div id="step-parametric-controls" className="w-full bg-white border border-[#d4d4d0] p-4 sm:p-5 shadow-xs space-y-4 font-sans text-stone-900">
       
       {/* Cabecera Técnica */}
       <div className="flex items-center justify-between border-b border-[#e5e5e0] pb-3">
@@ -159,14 +164,26 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
             </div>
           </div>
 
-          <div className="p-3 bg-white border border-[#d4d4d0]">
-            <span className="text-[10px] font-mono uppercase text-stone-500 block mb-1">
-              Derivada Marginal f'({problem.variableSymbol}; a,b)
-            </span>
-            <div className="text-base text-emerald-900 overflow-x-auto">
-              <LatexRenderer latex={analysis.derivativeLatex} displayMode={true} />
+          {isChallengeHidden ? (
+            <div className="p-3 bg-white border border-[#d4d4d0] flex flex-col justify-center items-center text-center py-4 space-y-1">
+              <div className="flex items-center gap-1.5 text-stone-500 font-mono text-[10px] uppercase font-bold">
+                <Lock className="w-3.5 h-3.5 text-amber-700" />
+                <span>Derivada f'({problem.variableSymbol}) Oculta en Modo Reto</span>
+              </div>
+              <p className="text-[11px] text-stone-600 font-mono leading-tight">
+                [Resolución oculta en Modo Reto — Complete las Etapas I, II y III en la Hoja de Resolución]
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="p-3 bg-white border border-[#d4d4d0]">
+              <span className="text-[10px] font-mono uppercase text-stone-500 block mb-1">
+                Derivada Marginal f'({problem.variableSymbol}; a,b)
+              </span>
+              <div className="text-base text-emerald-900 overflow-x-auto">
+                <LatexRenderer latex={analysis.derivativeLatex} displayMode={true} />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Desglose Término a Término */}
@@ -183,7 +200,13 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
                 </div>
                 <div className="flex items-center justify-between border-t border-[#f0f0eb] pt-1">
                   <span className="font-mono text-stone-500">d/d{problem.variableSymbol}:</span>
-                  <LatexRenderer latex={item.derivative} className="font-semibold text-emerald-800" />
+                  {isChallengeHidden ? (
+                    <span className="font-mono text-[10px] px-1.5 py-0.2 bg-stone-100 text-stone-500 border border-stone-200">
+                      [Oculto]
+                    </span>
+                  ) : (
+                    <LatexRenderer latex={item.derivative} className="font-semibold text-emerald-800" />
+                  )}
                 </div>
               </div>
             ))}
@@ -191,20 +214,32 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
         </div>
 
         {/* Resolución de la Condición de Primer Orden */}
-        <div className="p-3 bg-white border border-[#d4d4d0] space-y-1 text-xs">
-          <span className="text-[10px] font-mono font-bold uppercase text-stone-600 block">
-            Condición de Primer Orden: f'({problem.variableSymbol}*) = 0
-          </span>
-          <div className="text-sm text-stone-900 py-1 overflow-x-auto">
-            <LatexRenderer latex={analysis.equationSolvingLatex} displayMode={true} />
-          </div>
-          <div className="flex items-start gap-1.5 text-[11px] text-stone-600 pt-1 border-t border-[#f0f0eb]">
-            <Info className="w-3.5 h-3.5 text-blue-700 shrink-0 mt-0.5" />
-            <span>
-              <strong>Observación de Invarianza:</strong> Al variar el término constante <code>c = {coefficients.c}</code>, la curva se traslada verticalmente en el plano cartesiano; no obstante, su derivada instantánea y el valor de <code>{problem.variableSymbol}* = {analysis.criticalPoint}</code> permanecen algebraicamente intactos.
+        {isChallengeHidden ? (
+          <div className="p-3 bg-[#f7f6f2] border border-dashed border-[#d4d4d0] flex items-center justify-between text-xs font-mono">
+            <div className="flex items-center gap-2 text-stone-600">
+              <Lock className="w-3.5 h-3.5 text-amber-700" />
+              <span>Condición f'({problem.variableSymbol}*) = 0 y valor óptimo {problem.variableSymbol}* protegidos en Modo Reto</span>
+            </div>
+            <span className="text-[10px] px-2 py-0.5 bg-stone-200 text-stone-700 font-bold uppercase">
+              Andamiaje Activo
             </span>
           </div>
-        </div>
+        ) : (
+          <div className="p-3 bg-white border border-[#d4d4d0] space-y-1 text-xs">
+            <span className="text-[10px] font-mono font-bold uppercase text-stone-600 block">
+              Condición de Primer Orden: f'({problem.variableSymbol}*) = 0
+            </span>
+            <div className="text-sm text-stone-900 py-1 overflow-x-auto">
+              <LatexRenderer latex={analysis.equationSolvingLatex} displayMode={true} />
+            </div>
+            <div className="flex items-start gap-1.5 text-[11px] text-stone-600 pt-1 border-t border-[#f0f0eb]">
+              <Info className="w-3.5 h-3.5 text-blue-700 shrink-0 mt-0.5" />
+              <span>
+                <strong>Observación de Invarianza:</strong> Al variar el término constante <code>c = {coefficients.c}</code>, la curva se traslada verticalmente en el plano cartesiano; no obstante, su derivada instantánea y el valor de <code>{problem.variableSymbol}* = {analysis.criticalPoint}</code> permanecen algebraicamente intactos.
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
     </div>

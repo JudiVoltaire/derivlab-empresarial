@@ -15,6 +15,25 @@ export interface AnalyticalStepOption {
   explanation: string;
 }
 
+export type AppMode = 'docente' | 'estudiante';
+
+export interface PoeOption {
+  id: string;
+  label: string;
+  isCorrect: boolean;
+  explanation: string;
+}
+
+export interface PoeQuestion {
+  id: string;
+  question: string;
+  context: string;
+  targetParameter: 'a' | 'b' | 'c' | 'vertex';
+  options: PoeOption[];
+  observePrompt: string;
+  scientificExplanation: string;
+}
+
 export interface AnalyticalLockSteps {
   step1: {
     question: string;
@@ -88,6 +107,9 @@ export interface BusinessProblem {
   
   // Pasos pedagógicos del Candado Analítico
   candadoSteps: AnalyticalLockSteps;
+
+  // Micro-predicción socrática (Ciclo POE: Predecir - Observar - Explicar)
+  poeHypothesis: PoeQuestion;
 }
 
 export interface ProblemProgress {

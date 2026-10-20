@@ -1,2 +1,4 @@
 export * from './soundEngine'
 export * from './algebraService'
+export * from './parametricEngine'
+export * from './tourService'

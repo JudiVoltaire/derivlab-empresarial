@@ -105,6 +105,35 @@ export const BUSINESS_PROBLEMS: BusinessProblem[] = [
         explanation: 'Despeje algebraico de la Condición de Primer Orden: x* = -24 / (2·(-2)) = 6.00.',
         economicResult: 'En x* = 6.00, la tasa marginal instantánea es cero: el ingreso total se encuentra en su cúspide.'
       }
+    },
+
+    poeHypothesis: {
+      id: 'poe-1',
+      question: 'Si modificas únicamente el término constante c (ingreso base autónomo o subsidio fijo), ¿qué ocurrirá con el precio óptimo x* que maximiza el ingreso?',
+      context: 'Análisis de invarianza de la Condición de Primer Orden f\'(x*) = 0 frente a desplazamientos verticales.',
+      targetParameter: 'c',
+      options: [
+        {
+          id: 'opt-a',
+          label: 'El precio óptimo x* aumentará porque el ingreso global disponible es mayor.',
+          isCorrect: false,
+          explanation: 'Incorrecto. Aunque el ingreso total crece verticalmente, la tasa marginal de ganancia por cada incremento de precio depende únicamente de la pendiente, no de la altura de la curva.'
+        },
+        {
+          id: 'opt-b',
+          label: 'El precio óptimo x* permanecerá exactamente inalterado (x* = 6.00), porque la derivada del término constante es cero (d/dx[c] = 0).',
+          isCorrect: true,
+          explanation: '¡Excelente deducción! Como d/dx[c] = 0, la ecuación I\'(x) = 2a·x + b no depende de c. Por tanto, la raíz x* = -b/(2a) es invariante ante variaciones en c.'
+        },
+        {
+          id: 'opt-c',
+          label: 'El precio óptimo x* se reducirá para mantener el equilibrio de mercado.',
+          isCorrect: false,
+          explanation: 'Incorrecto. El subsidio fijo no cambia la sensibilidad ni la elasticidad marginal de los compradores.'
+        }
+      ],
+      observePrompt: 'Comprobación experimental: Modifica el deslizador del parámetro c en el panel de sensibilidad o arrastra la curva verticalmente. Observa cómo el vértice V* sube o baja de nivel, pero su coordenada horizontal x* se mantiene fija.',
+      scientificExplanation: 'Principio de Invarianza Marginal: Toda traslación vertical f(x) + c preserva la función derivada f\'(x). En economía gerencial, los ingresos o costos fijos no alteran el punto de equilibrio marginal de corto plazo.'
     }
   },
   {
@@ -211,6 +240,35 @@ export const BUSINESS_PROBLEMS: BusinessProblem[] = [
         explanation: 'Despeje: q* = -b / (2a) = -30 / (2·(-3)) = 5.00 lotes. U\'\'(5) = -6 < 0 confirma el máximo por concavidad.',
         economicResult: 'En q* = 5.00, la Utilidad Marginal es nula y la Utilidad Total alcanza su pico de £48,000.'
       }
+    },
+
+    poeHypothesis: {
+      id: 'poe-2',
+      question: 'Si los costos fijos fabriles aumentan en 15 mil libras (haciendo c más negativo), ¿cómo reaccionará la Utilidad Marginal U\'(q) y el volumen óptimo q*?',
+      context: 'Dilema clásico de Cournot y Marshall: Toma de decisiones en el margen frente a costos hundidos/fijos.',
+      targetParameter: 'c',
+      options: [
+        {
+          id: 'opt-a',
+          label: 'La Utilidad Marginal disminuye y la fábrica debe reducir la producción q*.',
+          isCorrect: false,
+          explanation: 'Incorrecto. El costo fijo se incurre independientemente del nivel de producción; no modifica el costo de producir una unidad adicional.'
+        },
+        {
+          id: 'opt-b',
+          label: 'La Utilidad Marginal y el lote óptimo q* = 5.00 permanecen estrictamente inalterados, ya que d/dq[c] = 0.',
+          isCorrect: true,
+          explanation: '¡Exacto! El costo marginal de una constante es nulo. Por ende, la regla de decisión marginalista no cambia ante variaciones de costos de estructura.'
+        },
+        {
+          id: 'opt-c',
+          label: 'La fábrica debe duplicar q* para amortizar los nuevos costos fijos.',
+          isCorrect: false,
+          explanation: 'Incorrecto. Producir más allá de q* incurre en deseconomías de escala que reducirían aún más la utilidad neta.'
+        }
+      ],
+      observePrompt: 'Comprobación experimental: Desplaza el control c hacia valores más negativos. Observa la Fig. 2 (Función Marginal U\'): ¡la recta verde no se mueve en absoluto! El cruce con U\'=0 se mantiene fijo en q* = 5.00.',
+      scientificExplanation: 'Axioma Microeconómico: Las decisiones de optimización se toman en el margen (U\'=0). Los costos fijos afectan el nivel contable del beneficio, pero no la tasa marginal ni la escala óptima de producción.'
     }
   },
   {
@@ -317,6 +375,35 @@ export const BUSINESS_PROBLEMS: BusinessProblem[] = [
         explanation: 'Despeje: (x*)² = 32 / 2 = 16 ⟹ x* = √16 = 4.00 (se adopta la raíz positiva por restricción económica x > 0).',
         economicResult: 'En x* = 4.00, el costo de emitir órdenes compensa con precisión el costo de almacenaje.'
       }
+    },
+
+    poeHypothesis: {
+      id: 'poe-3',
+      question: 'Si el costo unitario de almacenaje (parámetro a) se cuadruplica mientras los costos de pedido se mantienen fijos, ¿qué ocurrirá con el tamaño de lote óptimo x*?',
+      context: 'Sensibilidad no lineal en el modelo EOQ de Harris con exponente fraccionario.',
+      targetParameter: 'a',
+      options: [
+        {
+          id: 'opt-a',
+          label: 'El lote óptimo x* se reducirá a la mitad (x* / √4 = x* / 2), pues conviene ordenar pedidos más pequeños y frecuentes.',
+          isCorrect: true,
+          explanation: '¡Brillante deducción analítica! En x* = √(b/a), como el parámetro a está en el denominador dentro de la raíz cuadrada, multiplicar a por 4 divide a x* por √4 = 2.'
+        },
+        {
+          id: 'opt-b',
+          label: 'El lote óptimo x* se dividirá por 4 de forma directamente proporcional.',
+          isCorrect: false,
+          explanation: 'Incorrecto. La relación no es lineal; la condición de primer orden genera una raíz cuadrada sobre el cociente b/a.'
+        },
+        {
+          id: 'opt-c',
+          label: 'El lote óptimo x* debe aumentar para llenar la bodega más rápido.',
+          isCorrect: false,
+          explanation: 'Incorrecto. Si almacenar es cuatro veces más caro, mantener lotes grandes dispara el costo de posesión en almacén.'
+        }
+      ],
+      observePrompt: 'Comprobación experimental: Desplaza el parámetro a de 2 a 4 en el control. Observa cómo el vértice V* en la Fig. 1 y el cruce C\'(x)=0 en la Fig. 2 se trasladan hacia la izquierda.',
+      scientificExplanation: 'Ley de la Raíz Cuadrada de Inventarios: La sensibilidad del óptimo respecto al costo de posesión sigue una elasticidad de -0.5 (potencia inversa de la raíz cuadrada). Al cuadruplicar el costo de almacenaje, el tamaño económico de pedido se contrae en un 50%.'
     }
   },
   {
@@ -422,6 +509,35 @@ export const BUSINESS_PROBLEMS: BusinessProblem[] = [
         explanation: 'Evaluando en t = 0: V\'(0) = 10 · 0.5 · e⁰ = 5.00 M$/año.',
         economicResult: 'La tasa instantánea de rendimiento en el instante de apertura es de $5.00M anuales.'
       }
+    },
+
+    poeHypothesis: {
+      id: 'poe-4',
+      question: 'Al incrementar la tasa nominal de rendimiento b de 0.5 a 0.8 anual, ¿qué ocurre con la velocidad instantánea de creación de valor V\'(t) en el momento inicial t = 0?',
+      context: 'Aplicación de la Regla de la Cadena Exponencial d/dt[a·e^(bt)] = a·b·e^(bt) en el origen.',
+      targetParameter: 'b',
+      options: [
+        {
+          id: 'opt-a',
+          label: 'La velocidad instantánea inicial V\'(0) aumenta en proporción directa al incremento de b (V\'(0) = a·b), haciendo más empinada la recta tangente.',
+          isCorrect: true,
+          explanation: '¡Excelente! En t = 0, el factor e^(b·0) = 1. Por consiguiente, la derivada instantánea es simplemente V\'(0) = a·b, creciendo de forma lineal con la tasa b.'
+        },
+        {
+          id: 'opt-b',
+          label: 'La velocidad en t = 0 permanece en cero porque el tiempo apenas comienza.',
+          isCorrect: false,
+          explanation: 'Incorrecto. La velocidad de flujo continuo de capital no es nula en t = 0; el capital inicial comienza a devengar intereses instantáneamente.'
+        },
+        {
+          id: 'opt-c',
+          label: 'La velocidad instantánea se multiplica exponencialmente por e^0.8.',
+          isCorrect: false,
+          explanation: 'Incorrecto. En t = 0 el exponente b·t es 0, por lo que e⁰ = 1.'
+        }
+      ],
+      observePrompt: 'Comprobación experimental: Desplaza el control de la tasa b. Observa cómo la recta tangente verde en el origen se inclina con mayor pendiente y la Fig. 2 eleva su punto de partida.',
+      scientificExplanation: 'Regla de la Cadena Exponencial: La derivada de f(t) = a·e^(bt) extrae la tasa interna b como factor multiplicativo exterior. En t = 0, la pendiente de la recta tangente refleja con exactitud el producto a·b.'
     }
   }
 ];

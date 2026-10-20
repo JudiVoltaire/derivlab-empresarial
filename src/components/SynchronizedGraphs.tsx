@@ -559,7 +559,7 @@ export const SynchronizedGraphs: React.FC<SynchronizedGraphsProps> = ({
   })
 
   return (
-    <div className="w-full space-y-3 font-sans text-stone-900">
+    <div id="step-synchronized-graphs" className="w-full space-y-3 font-sans text-stone-900">
       
       {/* Barra de Control de la Gráfica */}
       <div className="bg-white border border-[#d4d4d0] p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 shadow-xs">
@@ -573,7 +573,7 @@ export const SynchronizedGraphs: React.FC<SynchronizedGraphsProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div id="step-limit-control" className="flex items-center gap-2">
           <button
             onClick={handleAnimateLimit}
             disabled={isAnimatingLimit}
@@ -584,7 +584,7 @@ export const SynchronizedGraphs: React.FC<SynchronizedGraphsProps> = ({
             }`}
           >
             <Play className="w-3 h-3 fill-current" />
-            <span>{isAnimatingLimit ? 'Calculando Límite...' : 'Animar lim Δx → 0'}</span>
+            <span>{isAnimatingLimit ? 'Calculando Límite...' : 'Ejecutar paso al límite Δx→0'}</span>
           </button>
 
           <button
@@ -612,8 +612,8 @@ export const SynchronizedGraphs: React.FC<SynchronizedGraphsProps> = ({
             onPointerUp={handlePointerUp}
           />
           <div className="flex items-center justify-between px-2 pt-1 text-[10px] text-stone-500 font-mono">
-            <span>● P(x₀, f): Evaluación</span>
-            <span>◆ V*(x*, y*): Vértice Arrastrable</span>
+            <span>● P({problem.variableSymbol}₀, f): Evaluación</span>
+            <span>◆ V*({problem.variableSymbol}*, y*): Vértice Arrastrable</span>
           </div>
         </div>
 
@@ -673,50 +673,99 @@ export const SynchronizedGraphs: React.FC<SynchronizedGraphsProps> = ({
         </div>
       </div>
 
-      {/* Acordeón Editorial: Tabla de Convergencia del Límite */}
-      <div className="bg-white border border-[#d4d4d0] shadow-xs">
+      {/* 4.º REGISTRO SEMIÓTICO DE DUVAL: Tabla Numérica de Convergencia del Límite */}
+      <div id="step-duval-table" className="bg-white border border-[#d4d4d0] shadow-xs">
         <button
           onClick={() => setIsTableOpen(!isTableOpen)}
           className="w-full p-3 flex items-center justify-between text-left text-xs font-bold text-stone-800 hover:bg-[#faf9f6] transition-colors cursor-pointer"
         >
-          <span className="uppercase tracking-wider">
-            Tabla de Convergencia del Límite Diferencial (Cociente Incremental)
-          </span>
-          {isTableOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 bg-emerald-700" />
+            <span className="uppercase tracking-wider">
+              Tabla de Convergencia Numérica (Δy/Δ{problem.variableSymbol} → f'({problem.variableSymbol}₀))
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-stone-500 font-normal hidden sm:inline">
+              Registro Tabular de Raymond Duval
+            </span>
+            {isTableOpen ? <ChevronUp className="w-4 h-4 text-stone-600" /> : <ChevronDown className="w-4 h-4 text-stone-600" />}
+          </div>
         </button>
 
         {isTableOpen && (
-          <div className="p-3 bg-[#faf9f6] border-t border-[#e5e5e0] overflow-x-auto space-y-2">
+          <div className="p-3.5 bg-[#faf9f6] border-t border-[#e5e5e0] overflow-x-auto space-y-3">
+            <div className="flex items-center justify-between text-[11px] font-mono border-b border-[#e5e5e0] pb-2 text-stone-600">
+              <span>
+                Punto Fijo de Evaluación: <strong>{problem.variableSymbol}₀ = {currentX.toFixed(2)}</strong>
+              </span>
+              <span>
+                Derivada Analítica Exacta: <strong className="text-emerald-800">f'({currentX.toFixed(2)}) = {exactDerivative.toFixed(4)}</strong>
+              </span>
+            </div>
+
             <table className="w-full text-xs text-left border-collapse font-mono">
               <thead>
-                <tr className="border-b border-[#d4d4d0] text-stone-600 text-[11px] uppercase">
-                  <th className="py-1.5 px-2">Δ{problem.variableSymbol}</th>
-                  <th className="py-1.5 px-2">f({problem.variableSymbol} + Δ{problem.variableSymbol})</th>
-                  <th className="py-1.5 px-2">Δy</th>
-                  <th className="py-1.5 px-2 text-amber-800">Secante (Δy/Δ{problem.variableSymbol})</th>
-                  <th className="py-1.5 px-2 text-emerald-800">Derivada f'</th>
-                  <th className="py-1.5 px-2">Error Absoluto</th>
+                <tr className="border-b border-[#d4d4d0] text-stone-700 text-[10px] sm:text-[11px] uppercase tracking-wide">
+                  <th className="py-2 px-2 bg-stone-100">1. Incremento Δ{problem.variableSymbol}</th>
+                  <th className="py-2 px-2">2. Punto {problem.variableSymbol}₀ + Δ{problem.variableSymbol}</th>
+                  <th className="py-2 px-2">3. Variación Δy</th>
+                  <th className="py-2 px-2 text-amber-900 bg-amber-50/70">4. Cociente Δy/Δ{problem.variableSymbol}</th>
+                  <th className="py-2 px-2 text-emerald-900 bg-emerald-50/70">5. Convergencia → f'({problem.variableSymbol}₀)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e5e5e0] tabular-nums text-[11px]">
-                {limitRows.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-white">
-                    <td className="py-1.5 px-2 font-bold text-stone-900">{row.dx}</td>
-                    <td className="py-1.5 px-2 text-stone-700">{row.fPlusDx.toFixed(4)}</td>
-                    <td className="py-1.5 px-2 text-stone-600">{row.dy.toFixed(4)}</td>
-                    <td className="py-1.5 px-2 font-bold text-amber-800">{row.secSlope.toFixed(4)}</td>
-                    <td className="py-1.5 px-2 font-bold text-emerald-800">{exactDerivative.toFixed(4)}</td>
-                    <td className="py-1.5 px-2 text-stone-600">
-                      {row.error < 0.0001 ? (
-                        <span className="text-emerald-700 font-bold">0.0000 (Exacto)</span>
-                      ) : (
-                        row.error.toFixed(4)
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {limitRows.map((row, idx) => {
+                  const isUltraClose = row.dx === 0.001
+                  return (
+                    <tr 
+                      key={idx} 
+                      className={`transition-colors ${
+                        isUltraClose ? 'bg-emerald-50/60 font-semibold' : 'hover:bg-white'
+                      }`}
+                    >
+                      <td className="py-2 px-2 font-bold text-stone-900 bg-stone-50/50">
+                        {row.dx.toFixed(3)}
+                      </td>
+                      <td className="py-2 px-2 text-stone-700">
+                        {(currentX + row.dx).toFixed(3)}
+                      </td>
+                      <td className="py-2 px-2 text-stone-600">
+                        {row.dy >= 0 ? `+${row.dy.toFixed(4)}` : row.dy.toFixed(4)}
+                      </td>
+                      <td className="py-2 px-2 font-bold text-amber-900 bg-amber-50/40">
+                        {row.secSlope.toFixed(4)}
+                      </td>
+                      <td className="py-2 px-2 text-emerald-900 bg-emerald-50/40">
+                        <div className="flex items-center gap-1.5">
+                          <span>{exactDerivative.toFixed(4)}</span>
+                          {row.error < 0.005 ? (
+                            <span className="text-[9px] font-mono px-1.5 py-0.2 bg-emerald-100 border border-emerald-300 text-emerald-800 uppercase font-bold">
+                              Convergente
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-mono text-stone-400">
+                              (err: {row.error.toFixed(4)})
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
+
+            {/* Fundamento de Raymond Duval */}
+            <div className="p-2.5 bg-white border border-[#e5e5e0] text-[11px] text-stone-600 leading-relaxed">
+              <span className="font-bold text-stone-800 uppercase font-mono text-[10px] block mb-0.5">
+                Fundamentación Didáctica de Raymond Duval:
+              </span>
+              La comprensión profunda del concepto de derivada exige la conversión y congruencia entre cuatro registros semióticos: 
+              el <em>registro coloquial</em> (contexto empresarial), el <em>registro algebraico</em> (fórmula simbólica), 
+              el <em>registro geométrico</em> (rectas secante y tangente en Fig. 1 y 2) y el <em>registro tabular numérico</em> (esta tabla de aproximación), 
+              demostrando que la derivada es el límite exacto del cociente incremental cuando Δ{problem.variableSymbol} tiende a 0.
+            </div>
           </div>
         )}
       </div>

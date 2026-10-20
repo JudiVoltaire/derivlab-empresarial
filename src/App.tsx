@@ -10,19 +10,21 @@ import {
   Navbar, 
   AlgebraicLockChalkboard, 
   ParametricControls, 
-  SynchronizedGraphs 
+  SynchronizedGraphs,
+  PoeHypothesisCard
 } from './components'
 import { BUSINESS_PROBLEMS } from './data'
-import type { ProblemId } from './types'
+import type { ProblemId, AppMode } from './types'
 import type { ParametricCoefficients } from './services/parametricEngine'
 import { analyzeParametricModel } from './services/parametricEngine'
-import { soundEngine } from './services'
+import { soundEngine, startTutorial } from './services'
 
 export default function App() {
   const [currentProblemId, setCurrentProblemId] = useState<ProblemId>('problema-1')
   const [completedProblemIds, setCompletedProblemIds] = useState<ProblemId[]>([])
   const [isSoundEnabled, setIsSoundEnabled] = useState(soundEngine.isSoundEnabled())
   const [unlockedProblems, setUnlockedProblems] = useState<Record<string, boolean>>({})
+  const [appMode, setAppMode] = useState<AppMode>('estudiante')
 
   const currentProblem = useMemo(() => {
     return BUSINESS_PROBLEMS.find(p => p.id === currentProblemId) || BUSINESS_PROBLEMS[0]
@@ -34,6 +36,14 @@ export default function App() {
   // Estado geométrico cartesiano (punto de evaluación x e incremento deltaX)
   const [currentX, setCurrentX] = useState<number>(2)
   const [deltaX, setDeltaX] = useState<number>(0.5)
+
+  // Disparar tutorial automáticamente en la primera visita
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      startTutorial(false)
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [])
 
   // Actualizar parámetros al cambiar de problema
   useEffect(() => {
@@ -89,6 +99,9 @@ export default function App() {
         completedProblemIds={completedProblemIds}
         isSoundEnabled={isSoundEnabled}
         onToggleSound={handleToggleSound}
+        appMode={appMode}
+        onToggleAppMode={setAppMode}
+        onStartTutorial={() => startTutorial(true)}
       />
 
       {/* Contenedor Principal */}
@@ -139,20 +152,38 @@ export default function App() {
                 <Activity className="w-3 h-3 text-blue-700" />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-stone-600">Punto Crítico x*:</span>
-                <span className="font-bold text-blue-800 tabular-nums">{dynamicAnalysis.criticalPoint} {currentProblem.variableUnit}</span>
+                <span className="text-stone-600">Punto Crítico {currentProblem.variableSymbol}*:</span>
+                <span className="font-bold text-blue-800 tabular-nums">
+                  {appMode === 'estudiante' && !isCurrentProblemUnlocked ? (
+                    <span className="text-stone-400 font-normal italic">[Oculto en Reto]</span>
+                  ) : (
+                    `${dynamicAnalysis.criticalPoint} ${currentProblem.variableUnit}`
+                  )}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-stone-600">Valor Extremo:</span>
-                <span className="font-bold text-stone-900 tabular-nums">{dynamicAnalysis.optimalValue} {currentProblem.functionUnit}</span>
+                <span className="font-bold text-stone-900 tabular-nums">
+                  {appMode === 'estudiante' && !isCurrentProblemUnlocked ? (
+                    <span className="text-stone-400 font-normal italic">[Oculto en Reto]</span>
+                  ) : (
+                    `${dynamicAnalysis.optimalValue} ${currentProblem.functionUnit}`
+                  )}
+                </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-stone-600">Derivada en x*:</span>
+                <span className="text-stone-600">Derivada en {currentProblem.variableSymbol}*:</span>
                 <span className="font-bold text-emerald-800 tabular-nums">0.0000 (Equilibrio)</span>
               </div>
             </div>
           </div>
         </section>
+
+        {/* Micro-Predicción Socrática: Ciclo POE (Predecir - Observar - Explicar) */}
+        <PoeHypothesisCard
+          poe={currentProblem.poeHypothesis}
+          problemTitle={currentProblem.title}
+        />
 
         {/* Estructura Modular de Dos Columnas */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
@@ -178,6 +209,8 @@ export default function App() {
               onChangeCoefficients={setCoefficients}
               onResetCoefficients={handleResetCoefficients}
               analysis={dynamicAnalysis}
+              appMode={appMode}
+              isUnlocked={isCurrentProblemUnlocked}
             />
 
             {/* 3. Panel de Concesión Económica cuando está desbloqueado */}

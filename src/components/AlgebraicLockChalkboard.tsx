@@ -133,7 +133,7 @@ export const AlgebraicLockChalkboard: React.FC<AlgebraicLockChalkboardProps> = (
   }
 
   return (
-    <div className="w-full bg-white border border-[#d4d4d0] shadow-xs font-sans text-stone-900 overflow-hidden">
+    <div id="step-algebraic-lock" className="w-full bg-white border border-[#d4d4d0] shadow-xs font-sans text-stone-900 overflow-hidden">
       
       {/* Cabecera Técnica Editorial */}
       <div className="p-4 bg-[#faf9f6] border-b border-[#e5e5e0] flex flex-wrap items-center justify-between gap-3">
