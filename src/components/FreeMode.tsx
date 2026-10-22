@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -11,6 +11,7 @@ import { compile } from 'mathjs'
 import { WhiteboardCanvas, formatRawToLatex } from './WhiteboardCanvas'
 import { GraphingCalculator } from './GraphingCalculator'
 import { LatexRenderer } from './LatexRenderer'
+import { ValidationModal, type ValidationModalData } from './ValidationModal'
 import type { BusinessProblem, ProblemId } from '../types/problem'
 import { getDefaultTangentPoint } from '../services/problemHelpers'
 import { soundEngine } from '../services'
@@ -41,16 +42,25 @@ export const FreeMode: React.FC<FreeModeProps> = ({
   const hasNext = currentIndex >= 0 && currentIndex < problemsList.length - 1
   const isProblemSolved = completedProblemIds.includes(currentProblem.id as ProblemId)
 
+  // Referencia para re-enfocar la caja de entrada tras cerrar el modal
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
   // Estado del ejercicio: entrada del alumno y punto de prueba
   const [userDerivative, setUserDerivative] = useState<string>('')
   const [testPointX0, setTestPointX0] = useState<number>(() => getDefaultTangentPoint(currentProblem))
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null)
+
+  // Estado del modal vistoso de validación
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [modalData, setModalData] = useState<ValidationModalData | null>(null)
 
   // Al cambiar de problema, limpiar respuestas y actualizar punto de prueba
   useEffect(() => {
     setUserDerivative('')
     setTestPointX0(getDefaultTangentPoint(currentProblem))
     setCheckResult(null)
+    setIsModalOpen(false)
+    setModalData(null)
   }, [currentProblem.id])
 
   // Función para evaluar la derivada del estudiante en un punto dado
@@ -87,13 +97,30 @@ export const FreeMode: React.FC<FreeModeProps> = ({
     }
   }, [])
 
+  // Formato LaTeX dinámico para la vista previa
+  const liveLatexPreview = useMemo(() => {
+    return formatRawToLatex(
+      userDerivative, 
+      currentProblem.variableSymbol, 
+      currentProblem.functionSymbol
+    )
+  }, [userDerivative, currentProblem.variableSymbol, currentProblem.functionSymbol])
+
   // Comprobar la derivada al presionar el botón "Comprobar" o pulsar Enter
   const handleCheck = () => {
     if (!userDerivative || !userDerivative.trim()) {
+      const emptyMsg = 'Por favor escribe tu derivada antes de comprobar.'
       setCheckResult({
         status: 'empty',
-        message: 'Por favor escribe tu derivada antes de comprobar.'
+        message: emptyMsg
       })
+      setModalData({
+        status: 'empty',
+        userRawInput: userDerivative,
+        userLatexPreview: liveLatexPreview,
+        message: emptyMsg
+      })
+      setIsModalOpen(true)
       return
     }
 
@@ -123,10 +150,18 @@ export const FreeMode: React.FC<FreeModeProps> = ({
 
     if (hasSyntaxError) {
       soundEngine.playErrorThud()
+      const syntaxMsg = 'Revisa la escritura: usa signos y operaciones claros (ej: -4x + 24 o 6t).'
       setCheckResult({
         status: 'syntax_error',
-        message: 'Revisa la escritura: usa signos y operaciones claros (ej: -4x + 24 o 6t).'
+        message: syntaxMsg
       })
+      setModalData({
+        status: 'syntax_error',
+        userRawInput: userDerivative,
+        userLatexPreview: liveLatexPreview,
+        message: syntaxMsg
+      })
+      setIsModalOpen(true)
       return
     }
 
@@ -134,30 +169,54 @@ export const FreeMode: React.FC<FreeModeProps> = ({
 
     if (isDerivCorrect) {
       soundEngine.playSuccessChord()
+      const successMsg = '✓ ¡Correcto! Tu derivada es exacta y coincide con la función del ejercicio.'
       setCheckResult({
         status: 'correct',
-        message: '✓ ¡Correcto! Tu derivada es exacta y coincide con la función del ejercicio.'
+        message: successMsg
       })
+      setModalData({
+        status: 'correct',
+        userRawInput: userDerivative,
+        userLatexPreview: liveLatexPreview,
+        message: successMsg
+      })
+      setIsModalOpen(true)
       if (onMarkSolved) {
         onMarkSolved(currentProblem.id as ProblemId)
       }
     } else {
       soundEngine.playErrorThud()
+      const errorMsg = 'Aún no es correcta. La curva verde no coincide con la pendiente de la función azul. Revisa tus operaciones en la pizarra e inténtalo de nuevo.'
       setCheckResult({
         status: 'incorrect',
-        message: 'Aún no es correcta. La curva verde no coincide con la pendiente de la función azul. Revisa tus operaciones en la pizarra e inténtalo de nuevo.'
+        message: errorMsg
       })
+      setModalData({
+        status: 'incorrect',
+        userRawInput: userDerivative,
+        userLatexPreview: liveLatexPreview,
+        message: errorMsg
+      })
+      setIsModalOpen(true)
     }
   }
 
-  // Formato LaTeX dinámico para la vista previa
-  const liveLatexPreview = useMemo(() => {
-    return formatRawToLatex(
-      userDerivative, 
-      currentProblem.variableSymbol, 
-      currentProblem.functionSymbol
-    )
-  }, [userDerivative, currentProblem.variableSymbol, currentProblem.functionSymbol])
+  // Cerrar modal y devolver el foco inmediatamente al input para el nuevo intento
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setTimeout(() => {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }, 50)
+  }
+
+  // Avanzar al siguiente ejercicio desde el modal
+  const handleNextProblem = () => {
+    setIsModalOpen(false)
+    if (hasNext) {
+      onSelectProblem(problemsList[currentIndex + 1].id)
+    }
+  }
 
   // Ejemplo sugerido para el placeholder según las variables del ejercicio
   const placeholderExample = useMemo(() => {
@@ -291,6 +350,7 @@ export const FreeMode: React.FC<FreeModeProps> = ({
             {/* Input directo */}
             <div className="relative flex-1">
               <input
+                ref={inputRef}
                 type="text"
                 value={userDerivative}
                 onChange={(e) => {
@@ -369,6 +429,16 @@ export const FreeMode: React.FC<FreeModeProps> = ({
         </div>
 
       </div>
+
+      {/* MODAL VISTOSO DE VALIDACIÓN (CUBRE PARTE DE LA PANTALLA ANTES DE DEJAR CONTINUAR) */}
+      <ValidationModal
+        isOpen={isModalOpen}
+        data={modalData}
+        problem={currentProblem}
+        onClose={handleCloseModal}
+        onNextProblem={handleNextProblem}
+        hasNextProblem={hasNext}
+      />
 
     </div>
   )
