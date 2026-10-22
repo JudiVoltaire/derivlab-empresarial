@@ -2,13 +2,8 @@ import { driver } from 'driver.js'
 import type { Driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
 
-let tourDriverInstance: Driver | null = null
-
-export const initTour = (): Driver => {
-  if (tourDriverInstance) {
-    return tourDriverInstance
-  }
-
+// RUTA A: Aprender desde Cero (Pedagogía Conceptual y Registros Semióticos)
+export const initRouteATour = (): Driver => {
   const driverObj = driver({
     showProgress: true,
     animate: true,
@@ -18,7 +13,7 @@ export const initTour = (): Driver => {
     popoverClass: 'derivlab-driver-popover',
     nextBtnText: 'Siguiente →',
     prevBtnText: '← Anterior',
-    doneBtnText: 'Finalizar Tutorial',
+    doneBtnText: 'Finalizar Ruta A',
     progressText: 'Paso {{current}} de {{total}}',
     disableActiveInteraction: false,
     onDestroyStarted: () => {
@@ -30,7 +25,7 @@ export const initTour = (): Driver => {
         element: '#step-parametric-controls',
         popover: {
           title: 'Paso 1: Sensibilidad Paramétrica y Acoplamiento Bidireccional',
-          description: 'Ajusta los deslizadores (a, b, c) o los campos numéricos. La curva cartesiana se deforma en tiempo real respetando la Teoría de Registros Semióticos de Duval. Al mover un parámetro, el tutorial avanzará automáticamente.',
+          description: 'Ajusta los coeficientes (a, b, c) o modifica el vértice naranja V*. La curva cartesiana se deforma en tiempo real respetando la Teoría de Registros Semióticos de Duval. Al mover un parámetro, el tutorial avanzará automáticamente.',
           side: 'top',
           align: 'start'
         },
@@ -82,14 +77,74 @@ export const initTour = (): Driver => {
     ]
   })
 
-  tourDriverInstance = driverObj
   return driverObj
 }
 
-export const startTutorial = (force = false) => {
+// RUTA B: Tour Rápido Modo Libre (Pizarra + Graficadora Científica)
+export const initRouteBTour = (): Driver => {
+  const driverObj = driver({
+    showProgress: true,
+    animate: true,
+    allowClose: true,
+    stagePadding: 6,
+    stageRadius: 0,
+    popoverClass: 'derivlab-driver-popover',
+    nextBtnText: 'Siguiente →',
+    prevBtnText: '← Anterior',
+    doneBtnText: 'Finalizar Tour Rápido',
+    progressText: 'Paso {{current}} de {{total}}',
+    disableActiveInteraction: false,
+    onDestroyStarted: () => {
+      localStorage.setItem('derivlab_tutorial_v1', 'completed')
+      driverObj.destroy()
+    },
+    steps: [
+      {
+        element: '#step-whiteboard',
+        popover: {
+          title: 'Paso 1: Pizarra Universitaria Híbrida',
+          description: 'Dibuja esquemas con tinta digital a 60 FPS (ratón, táctil o stylus). Abajo puedes formular tus ecuaciones en notación matemática estándar.',
+          side: 'right',
+          align: 'start'
+        }
+      },
+      {
+        element: '#step-whiteboard',
+        popover: {
+          title: 'Paso 2: Inyección Simbólica a la Calculadora',
+          description: 'Haz clic en el botón azul "[Graficar en Calculadora →]" para transferir instantáneamente f(x), f\'(x) y el punto crítico a la columna derecha.',
+          side: 'bottom',
+          align: 'center'
+        }
+      },
+      {
+        element: '#step-graphing-calc',
+        popover: {
+          title: 'Paso 3: Motor Cartesiano de Doble Prueba',
+          description: 'La calculadora renderiza las curvas y1 = f(x), y2 = f\'(x) y la recta tangente y3. Permite zoom y panorámica con ratón o gestos táctiles.',
+          side: 'left',
+          align: 'start'
+        }
+      },
+      {
+        element: '#step-intersection-badge',
+        popover: {
+          title: 'Paso 4: Validación Geométrica Anti-Falsos Positivos',
+          description: 'El motor verifica a 1000 puntos que f\'(x*) = 0 coincide con el extremo local y que la pendiente de la recta tangente coincide con la derivada en el punto de prueba.',
+          side: 'top',
+          align: 'center'
+        }
+      }
+    ]
+  })
+
+  return driverObj
+}
+
+export const startTutorial = (route: 'A' | 'B' = 'A', force = false) => {
   if (!force && localStorage.getItem('derivlab_tutorial_v1') === 'completed') {
     return
   }
-  const d = initTour()
+  const d = route === 'B' ? initRouteBTour() : initRouteATour()
   d.drive()
 }

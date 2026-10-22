@@ -1,11 +1,15 @@
 // Tipos de datos para los Problemas Empresariales de DerivLab
-// Rigor académico: Problema I - IV, sensibilidad paramétrica y optimización
+// Rigor académico: Problemas 1–20, sensibilidad paramétrica y optimización
 
 import type { ParametricCoefficients, ParametricMeta } from '../services/parametricEngine'
 
-export type ProblemId = 'problema-1' | 'problema-2' | 'problema-3' | 'problema-4';
+export type ProblemId = string;
 
-export type VariableSymbol = 'x' | 'q' | 't';
+export type VariableSymbol = 'x' | 'q' | 't' | 'p';
+
+export type AppMode = 'docente' | 'estudiante' | 'libre';
+
+export type ProblemLevel = 'I' | 'II' | 'III' | 'IV';
 
 export interface AnalyticalStepOption {
   id: string;
@@ -14,8 +18,6 @@ export interface AnalyticalStepOption {
   isCorrect: boolean;
   explanation: string;
 }
-
-export type AppMode = 'docente' | 'estudiante';
 
 export interface PoeOption {
   id: string;
@@ -58,18 +60,29 @@ export interface AnalyticalLockSteps {
   };
 }
 
+// Curva dual para problemas de equilibrio (Ingreso Marginal = Costo Marginal)
+export interface DualCurve {
+  label: string;
+  functionLatex: string;
+  derivativeLatex: string;
+  evaluate: (val: number) => number;
+  evaluateDerivative: (val: number) => number;
+  color: 'emerald' | 'amber' | 'red';
+}
+
 export interface BusinessProblem {
   id: ProblemId;
-  problemNumber: 1 | 2 | 3 | 4;
-  romanNumeral: 'I' | 'II' | 'III' | 'IV';
+  problemNumber: number;
+  romanNumeral: string;
   title: string;
   era: string;
   year: string;
   protagonist: string;
   story: string;
   economicConcept: string;
-  difficulty: 'Nivel I' | 'Nivel II' | 'Nivel III' | 'Nivel IV';
-  
+  difficulty: string;
+  level: ProblemLevel;
+
   // Variables y funciones
   variableSymbol: VariableSymbol;
   variableLabel: string;
@@ -77,7 +90,7 @@ export interface BusinessProblem {
   functionSymbol: string;
   functionName: string;
   functionUnit: string;
-  
+
   // Parámetros vivos y metadatos
   baseCoefficients: ParametricCoefficients;
   parametricMeta: ParametricMeta;
@@ -91,20 +104,24 @@ export interface BusinessProblem {
     isConcaveDown: boolean;
     meaning: string;
   };
-  
+
   // Valores óptimos base
   criticalPoint: number;
   optimalValue: number;
   optimalInterpretation: string;
-  
+
   // Dominio para visualización
   domain: [number, number];
-  
+
   // Evaluaciones numéricas
   evaluate: (val: number) => number;
   evaluateDerivative: (val: number) => number;
   evaluateSecondDerivative?: (val: number) => number;
-  
+
+  // Curva dual para problemas de equilibrio (P12, P13)
+  equilibriumMode?: boolean;
+  costCurve?: DualCurve;
+
   // Pasos pedagógicos del Candado Analítico
   candadoSteps: AnalyticalLockSteps;
 
@@ -117,4 +134,13 @@ export interface ProblemProgress {
   isCompleted: boolean;
   unlockedAt?: number;
   bestAccuracy?: number;
+}
+
+// Tipo para líneas algebraicas en la Pizarra Libre
+export interface AlgebraicLine {
+  id: string;
+  expression: string;
+  latex: string;
+  color: 'blue' | 'red' | 'green' | 'orange' | 'purple';
+  visible: boolean;
 }
