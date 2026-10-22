@@ -347,7 +347,7 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 bg-emerald-600 inline-block"></span>
           <span className="font-bold text-stone-900 tracking-tight">
-            Gráfico en Vivo
+            2. Gráfico en Vivo
           </span>
           <span className="text-stone-400">|</span>
           <span className="text-stone-500 text-[11px] font-sans flex items-center gap-2">

@@ -209,10 +209,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                     ? 'bg-white text-stone-900 border border-[#d4d4d0] shadow-2xs'
                     : 'text-stone-500 hover:text-stone-800'
                 }`}
-                title="Modo Demostración Docente: Revela las soluciones analíticas y derivadas en tiempo real"
+                title="Modo Docente (Tutor): Muestra las derivadas y soluciones para guiar la competencia"
               >
                 <GraduationCap className="w-3 h-3 text-blue-700" />
-                <span className="hidden md:inline">Docente</span>
+                <span className="hidden md:inline">Docente (Tutor)</span>
               </button>
               
               <button
@@ -222,7 +222,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     ? 'bg-stone-900 text-white border border-stone-900 shadow-2xs'
                     : 'text-stone-500 hover:text-stone-800'
                 }`}
-                title="Modo Reto Estudiante: Oculta la solución hasta resolver las etapas analíticas con el Candado"
+                title="Modo Reto Estudiante: Oculta la solución hasta resolver los pasos con el Candado"
               >
                 <Target className="w-3 h-3 text-amber-400" />
                 <span className="hidden md:inline">Reto</span>
@@ -235,7 +235,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     ? 'bg-blue-700 text-white border border-blue-700 shadow-2xs'
                     : 'text-stone-500 hover:text-stone-800'
                 }`}
-                title="Modo Libre: Pizarra Universitaria Híbrida + Graficadora Científica de Doble Prueba"
+                title="Modo Libre: Competencia con Pizarra y Gráfico en Vivo"
               >
                 <PenTool className="w-3 h-3 text-amber-300" />
                 <span className="hidden md:inline">Modo Libre</span>

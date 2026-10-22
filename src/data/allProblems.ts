@@ -971,7 +971,7 @@ const P13: BusinessProblem = {
   year: 'Nivel III',
   protagonist: 'Empresa Manufacturera con Estructura Cuadrática de Costos',
   story: 'Una empresa manufacturera tiene ingreso I(q) = 36q - q² y costo C(q) = q² + 4q + 20. El beneficio B(q) = I(q) - C(q) = -2q² + 32q - 20. Se requiere demostrar que el cruce de las curvas de ingreso marginal y costo marginal identifica el mismo q* que la Condición de Primer Orden del beneficio.',
-  economicConcept: 'Doble Prueba Geométrica: Cruce IM/CM y Máximo de B(q)',
+  economicConcept: 'Equilibrio de Beneficio: Cruce IM = CM y Máximo de B(q)',
   difficulty: 'Nivel III',
   level: 'III',
   variableSymbol: 'q',
@@ -1032,7 +1032,7 @@ const P13: BusinessProblem = {
     step3: {
       equationLatex: "B'(q^*) = 0 \\implies -4q^* + 32 = 0 \\implies q^* = 8",
       criticalPoint: 8,
-      explanation: 'q* = 8 es idéntico al cruce IM = CM. La Doble Prueba Geométrica confirma la consistencia del análisis.',
+      explanation: 'q* = 8 es idéntico al cruce IM = CM. El análisis gráfico confirma la consistencia del resultado.',
       economicResult: 'B(8) = -2(64) + 32(8) - 20 = -128 + 256 - 20 = 108 k u.m. de beneficio máximo.'
     }
   },

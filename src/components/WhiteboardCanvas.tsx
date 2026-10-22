@@ -265,10 +265,8 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({ className = 
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 bg-blue-700 inline-block"></span>
           <span className="font-bold text-stone-900 tracking-tight">
-            Pizarra de Borrador
+            1. Pizarra de Borrador (Haz tus cuentas aquí)
           </span>
-          <span className="text-stone-400">|</span>
-          <span className="text-stone-500 text-[11px] font-sans">Haz tus cuentas aquí</span>
         </div>
 
         <div className="flex items-center gap-1.5">

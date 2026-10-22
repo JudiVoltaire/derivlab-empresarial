@@ -26,7 +26,7 @@ export default function App() {
   const [completedProblemIds, setCompletedProblemIds] = useState<ProblemId[]>([])
   const [isSoundEnabled, setIsSoundEnabled] = useState(soundEngine.isSoundEnabled())
   const [unlockedProblems, setUnlockedProblems] = useState<Record<string, boolean>>({})
-  const [appMode, setAppMode] = useState<AppMode>('estudiante')
+  const [appMode, setAppMode] = useState<AppMode>('libre')
 
   const currentProblem = useMemo(() => {
     return problemsList.find(p => p.id === currentProblemId) || problemsList[0]
@@ -153,6 +153,8 @@ export default function App() {
             currentProblem={currentProblem}
             onSelectProblem={handleSelectProblem}
             problemsList={problemsList}
+            onMarkSolved={handleUnlockProblem}
+            completedProblemIds={completedProblemIds}
           />
         ) : (
           <>
@@ -174,12 +176,26 @@ export default function App() {
                     {currentProblem.difficulty} (Nivel {currentProblem.level})
                   </span>
                   <span className={`px-2 py-0.5 border font-semibold flex items-center gap-1.5 ${
-                    isCurrentProblemUnlocked
+                    appMode === 'docente'
+                      ? 'bg-blue-50 text-blue-800 border-blue-300'
+                      : isCurrentProblemUnlocked
                       ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                       : 'bg-stone-100 text-stone-600 border-stone-300'
                   }`}>
-                    {isCurrentProblemUnlocked ? <Unlock className="w-3 h-3 text-emerald-700" /> : <Lock className="w-3 h-3 text-stone-500" />}
-                    <span>{isCurrentProblemUnlocked ? 'Optimización Habilitada' : 'Validación Requerida'}</span>
+                    {appMode === 'docente' ? (
+                      <Unlock className="w-3 h-3 text-blue-700" />
+                    ) : isCurrentProblemUnlocked ? (
+                      <Unlock className="w-3 h-3 text-emerald-700" />
+                    ) : (
+                      <Lock className="w-3 h-3 text-stone-500" />
+                    )}
+                    <span>
+                      {appMode === 'docente' 
+                        ? 'Modo Docente (Tutor): Solución Visible en Vivo' 
+                        : isCurrentProblemUnlocked 
+                        ? 'Optimización Habilitada' 
+                        : 'Validación Requerida'}
+                    </span>
                   </span>
                 </div>
               </div>

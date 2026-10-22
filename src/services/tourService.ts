@@ -103,7 +103,7 @@ export const initRouteBTour = (): Driver => {
         element: '#step-free-mode',
         popover: {
           title: 'Paso 1: Ejercicio Empresarial y Respuesta Directa',
-          description: 'Selecciona cualquiera de los 20 problemas en la barra superior. Lee la función a derivar y escribe tu respuesta en la caja. Si el problema tiene máximo o mínimo, completa también el punto donde da 0.',
+          description: 'Selecciona cualquiera de los 20 problemas en la barra superior. Lee la función en grande, escribe tu derivada en la caja directa y pulsa Comprobar (o presiona Enter). La curva verde se dibuja automáticamente mientras escribes.',
           side: 'bottom',
           align: 'center'
         }
