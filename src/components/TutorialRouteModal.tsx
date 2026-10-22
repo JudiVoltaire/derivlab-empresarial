@@ -82,7 +82,7 @@ export const TutorialRouteModal: React.FC<TutorialRouteModalProps> = ({
               </span>
             </div>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Explora la Pizarra Universitaria Híbrida (tinta digital + KaTeX), transfiere hipótesis a la Graficadora Científica y verifica la Doble Prueba Geométrica.
+              Haz tus cuentas en la Pizarra de Borrador y escribe tu derivada para verla dibujada en vivo sobre el gráfico en tiempo real.
             </p>
           </button>
         </div>

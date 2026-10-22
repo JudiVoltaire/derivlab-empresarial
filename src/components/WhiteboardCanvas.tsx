@@ -3,35 +3,11 @@ import {
   Pen, 
   Eraser, 
   RotateCcw, 
-  Trash2, 
-  Send, 
-  Plus, 
-  Trash
+  Trash2
 } from 'lucide-react'
-import { LatexRenderer } from './LatexRenderer'
-import type { BusinessProblem } from '../types/problem'
 
 interface WhiteboardCanvasProps {
-  onSendToCalculator?: (data: {
-    y1?: string
-    y2?: string
-    y3?: string
-    xStar?: number
-  }) => void
-  initialExpressions?: {
-    y1?: string
-    y2?: string
-    y3?: string
-    xStar?: number
-  }
-  problem?: BusinessProblem
-}
-
-interface AlgebraicStep {
-  id: string
-  label: string
-  rawExpression: string
-  targetSlot: 'y1' | 'y2' | 'y3' | 'xStar'
+  className?: string
 }
 
 /**
@@ -39,24 +15,19 @@ interface AlgebraicStep {
  */
 export const formatRawToLatex = (
   raw: string,
-  target: 'y1' | 'y2' | 'y3' | 'xStar',
   variableSymbol: string = 'x',
   functionSymbol: string = 'f'
 ): string => {
   const v = variableSymbol
   const f = functionSymbol
-  const prefix = 
-    target === 'y1' ? `${f}(${v}) = ` :
-    target === 'y2' ? `${f}'(${v}) = ` :
-    target === 'y3' ? `T(${v}) = ` :
-    `${v}^* = `
+  const prefix = `${f}'(${v}) = `
 
   if (!raw || !raw.trim()) {
     return `${prefix}\\dots`
   }
 
   let clean = raw.trim()
-  // Limpiar posibles prefijos si el estudiante escribió "f(x) =" o "x* ="
+  // Limpiar posibles prefijos si el estudiante escribió "f'(x) =" o "f(x) ="
   clean = clean.replace(/^[a-zA-Z_]\([^)]*\)\s*=\s*/, '')
   clean = clean.replace(/^[a-zA-Z_]'\([^)]*\)\s*=\s*/, '')
   clean = clean.replace(/^[a-zA-Z_]\*\s*=\s*/, '')
@@ -80,12 +51,9 @@ export const formatRawToLatex = (
   return `${prefix}${clean}`
 }
 
-export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
-  onSendToCalculator,
-  initialExpressions,
-  problem
-}) => {
+export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({ className = '' }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const [tool, setTool] = useState<'pen' | 'eraser'>('pen')
   const [strokeColor, setStrokeColor] = useState<string>('#18181b')
   const [strokeWidth, setStrokeWidth] = useState<number>(2)
@@ -94,62 +62,13 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
   const historyRef = useRef<ImageData[]>([])
   const [canUndo, setCanUndo] = useState(false)
 
-  const vSymbol = problem?.variableSymbol || 'x'
-  const fSymbol = problem?.functionSymbol || 'f'
-
-  // Líneas algebraicas formalizadas
-  const [algebraicSteps, setAlgebraicSteps] = useState<AlgebraicStep[]>([
-    {
-      id: 'step-1',
-      label: `Función Total ${fSymbol}(${vSymbol})`,
-      rawExpression: initialExpressions?.y1 || '',
-      targetSlot: 'y1'
-    },
-    {
-      id: 'step-2',
-      label: `Función Marginal ${fSymbol}'(${vSymbol})`,
-      rawExpression: initialExpressions?.y2 || '',
-      targetSlot: 'y2'
-    },
-    {
-      id: 'step-3',
-      label: `Punto Crítico ${vSymbol}*`,
-      rawExpression: initialExpressions?.xStar !== undefined ? initialExpressions.xStar.toString() : '',
-      targetSlot: 'xStar'
-    }
-  ])
-
-  // Sincronizar pasos algebraicos automáticamente cuando cambie initialExpressions o el problema
-  useEffect(() => {
-    setAlgebraicSteps([
-      {
-        id: 'step-1',
-        label: `Función Total ${fSymbol}(${vSymbol})`,
-        rawExpression: initialExpressions?.y1 || '',
-        targetSlot: 'y1'
-      },
-      {
-        id: 'step-2',
-        label: `Función Marginal ${fSymbol}'(${vSymbol})`,
-        rawExpression: initialExpressions?.y2 || '',
-        targetSlot: 'y2'
-      },
-      {
-        id: 'step-3',
-        label: `Punto Crítico ${vSymbol}*`,
-        rawExpression: initialExpressions?.xStar !== undefined ? initialExpressions.xStar.toString() : '',
-        targetSlot: 'xStar'
-      }
-    ])
-  }, [initialExpressions?.y1, initialExpressions?.y2, initialExpressions?.xStar, vSymbol, fSymbol])
-
-  // Dibujar cuadrícula técnica
+  // Dibujar cuadrícula técnica sobria
   const drawGrid = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
     ctx.save()
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, width, height)
 
-    // Cuadrícula fina de 20px
+    // Cuadrícula fina cada 20px
     ctx.strokeStyle = '#f1f1ee'
     ctx.lineWidth = 1
     for (let x = 0; x < width; x += 20) {
@@ -165,7 +84,7 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
       ctx.stroke()
     }
 
-    // Cuadrícula mayor cada 100px
+    // Guías cada 100px
     ctx.strokeStyle = '#e5e5e0'
     ctx.lineWidth = 1
     for (let x = 0; x < width; x += 100) {
@@ -184,27 +103,33 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
   }, [])
 
   // Inicializar Canvas
-  useEffect(() => {
+  const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    const container = containerRef.current
+    if (!canvas || !container) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
     const dpr = window.devicePixelRatio || 1
-    const rect = canvas.getBoundingClientRect()
+    const rect = container.getBoundingClientRect()
     const width = Math.floor(rect.width * dpr)
     const height = Math.floor(rect.height * dpr)
 
-    canvas.width = width
-    canvas.height = height
-
-    drawGrid(ctx, width, height)
-
-    // Guardar estado inicial en historia
-    const initialSnapshot = ctx.getImageData(0, 0, width, height)
-    historyRef.current = [initialSnapshot]
-    setCanUndo(false)
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width
+      canvas.height = height
+      drawGrid(ctx, width, height)
+      const snapshot = ctx.getImageData(0, 0, width, height)
+      historyRef.current = [snapshot]
+      setCanUndo(false)
+    }
   }, [drawGrid])
+
+  useEffect(() => {
+    resizeCanvas()
+    window.addEventListener('resize', resizeCanvas)
+    return () => window.removeEventListener('resize', resizeCanvas)
+  }, [resizeCanvas])
 
   // Guardar snapshot para Undo
   const saveSnapshot = () => {
@@ -227,7 +152,7 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    historyRef.current.pop() // Quita el actual
+    historyRef.current.pop() // Quitar el actual
     const previous = historyRef.current[historyRef.current.length - 1]
     if (previous) {
       ctx.putImageData(previous, 0, 0)
@@ -246,7 +171,7 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
     saveSnapshot()
   }
 
-  // Coordenadas con soporte de DPI
+  // Coordenadas con DPI
   const getCoordinates = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
@@ -258,7 +183,7 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
     }
   }
 
-  // Eventos de Puntero (Stylus, Touch, Mouse a 60 FPS)
+  // Eventos de Puntero
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId)
     isDrawingRef.current = true
@@ -333,93 +258,45 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
     }
   }
 
-  const handleUpdateStep = (id: string, raw: string) => {
-    setAlgebraicSteps(prev =>
-      prev.map(step => {
-        if (step.id !== id) return step
-        return {
-          ...step,
-          rawExpression: raw
-        }
-      })
-    )
-  }
-
-  const handleAddStep = () => {
-    const newId = `step-${Date.now()}`
-    setAlgebraicSteps(prev => [
-      ...prev,
-      {
-        id: newId,
-        label: `Recta Tangente T(${vSymbol})`,
-        rawExpression: '',
-        targetSlot: 'y3'
-      }
-    ])
-  }
-
-  const handleRemoveStep = (id: string) => {
-    setAlgebraicSteps(prev => prev.filter(s => s.id !== id))
-  }
-
-  // Transferir expresiones a la Calculadora Gráfica
-  const handleTransferToCalculator = () => {
-    if (!onSendToCalculator) return
-
-    const y1Step = algebraicSteps.find(s => s.targetSlot === 'y1')
-    const y2Step = algebraicSteps.find(s => s.targetSlot === 'y2')
-    const y3Step = algebraicSteps.find(s => s.targetSlot === 'y3')
-    const xStarStep = algebraicSteps.find(s => s.targetSlot === 'xStar')
-
-    const parsedXStar = xStarStep && xStarStep.rawExpression.trim() !== ''
-      ? parseFloat(xStarStep.rawExpression) 
-      : undefined
-
-    onSendToCalculator({
-      y1: y1Step?.rawExpression,
-      y2: y2Step?.rawExpression,
-      y3: y3Step?.rawExpression,
-      xStar: isNaN(parsedXStar || NaN) ? undefined : parsedXStar
-    })
-  }
-
   return (
-    <div id="step-whiteboard" className="bg-white border border-[#d4d4d0] shadow-xs flex flex-col h-full">
+    <div id="step-whiteboard" className={`bg-white border border-[#d4d4d0] shadow-xs flex flex-col h-full ${className}`}>
       {/* Barra de Herramientas de la Pizarra */}
       <div className="p-3 border-b border-[#e5e5e0] bg-[#faf9f6] flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
         <div className="flex items-center gap-1.5">
-          <span className="font-bold text-stone-900 tracking-tight flex items-center gap-1">
-            <span className="w-2 h-2 bg-blue-700 inline-block"></span>
-            PIZARRA CIENTÍFICA
+          <span className="w-2 h-2 bg-blue-700 inline-block"></span>
+          <span className="font-bold text-stone-900 tracking-tight">
+            Pizarra de Borrador
           </span>
           <span className="text-stone-400">|</span>
-          <span className="text-stone-500 text-[11px]">Tinta Vectorial 60 FPS</span>
+          <span className="text-stone-500 text-[11px] font-sans">Haz tus cuentas aquí</span>
         </div>
 
-        <div className="flex items-center gap-1">
-          {/* Herramienta Pluma vs Borrador */}
+        <div className="flex items-center gap-1.5">
+          {/* Lápiz vs Borrador */}
           <div className="flex border border-[#d4d4d0] bg-white p-0.5">
             <button
               onClick={() => setTool('pen')}
-              className={`p-1.5 transition-colors cursor-pointer ${
-                tool === 'pen' ? 'bg-[#f7f6f2] text-blue-700 font-bold' : 'text-stone-500 hover:text-stone-800'
+              className={`px-2 py-1 flex items-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer ${
+                tool === 'pen' ? 'bg-[#f7f6f2] text-blue-700 font-bold' : 'text-stone-600 hover:text-stone-900'
               }`}
-              title="Pluma Técnica"
+              title="Lápiz"
             >
               <Pen className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Lápiz</span>
             </button>
             <button
               onClick={() => setTool('eraser')}
-              className={`p-1.5 transition-colors cursor-pointer ${
-                tool === 'eraser' ? 'bg-[#f7f6f2] text-amber-700 font-bold' : 'text-stone-500 hover:text-stone-800'
+              className={`px-2 py-1 flex items-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer ${
+                tool === 'eraser' ? 'bg-[#f7f6f2] text-amber-700 font-bold' : 'text-stone-600 hover:text-stone-900'
               }`}
               title="Borrador"
             >
               <Eraser className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Borrador</span>
             </button>
           </div>
 
-          {/* Paleta de Colores Técnicos */}
+          {/* Paleta de Colores */}
           <div className="flex items-center border border-[#d4d4d0] bg-white p-1 gap-1">
             <button
               onClick={() => { setTool('pen'); setStrokeColor('#18181b'); }}
@@ -427,7 +304,7 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
                 strokeColor === '#18181b' && tool === 'pen' ? 'ring-2 ring-stone-900 scale-110' : ''
               }`}
               style={{ backgroundColor: '#18181b' }}
-              title="Grafito Técnico (#18181b)"
+              title="Negro"
             />
             <button
               onClick={() => { setTool('pen'); setStrokeColor('#1d4ed8'); }}
@@ -435,7 +312,7 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
                 strokeColor === '#1d4ed8' && tool === 'pen' ? 'ring-2 ring-blue-700 scale-110' : ''
               }`}
               style={{ backgroundColor: '#1d4ed8' }}
-              title="Azul Cobalto (#1d4ed8)"
+              title="Azul"
             />
             <button
               onClick={() => { setTool('pen'); setStrokeColor('#b91c1c'); }}
@@ -443,11 +320,11 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
                 strokeColor === '#b91c1c' && tool === 'pen' ? 'ring-2 ring-red-700 scale-110' : ''
               }`}
               style={{ backgroundColor: '#b91c1c' }}
-              title="Rojo Editorial (#b91c1c)"
+              title="Rojo"
             />
           </div>
 
-          {/* Grosor de trazo */}
+          {/* Grosor de Trazo */}
           <div className="flex border border-[#d4d4d0] bg-white p-0.5 text-[10px]">
             {[1, 2, 4].map(w => (
               <button
@@ -469,22 +346,25 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
             className={`p-1.5 border border-[#d4d4d0] bg-white transition-colors ${
               canUndo ? 'text-stone-800 hover:bg-[#f7f6f2] cursor-pointer' : 'text-stone-300 cursor-not-allowed'
             }`}
-            title="Deshacer trazo"
+            title="Deshacer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={handleClear}
             className="p-1.5 border border-[#d4d4d0] bg-white text-stone-600 hover:text-red-700 hover:bg-[#f7f6f2] transition-colors cursor-pointer"
-            title="Limpiar pizarra entera"
+            title="Limpiar pizarra"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Área del Canvas con Cuadrícula Milimetrada */}
-      <div className="relative w-full h-[260px] sm:h-[320px] bg-white touch-none cursor-crosshair overflow-hidden">
+      {/* Área del Canvas ocupando todo el alto disponible */}
+      <div 
+        ref={containerRef}
+        className="relative w-full flex-1 min-h-[440px] sm:min-h-[500px] bg-white touch-none cursor-crosshair overflow-hidden"
+      >
         <canvas
           ref={canvasRef}
           onPointerDown={handlePointerDown}
@@ -493,83 +373,8 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
           onPointerCancel={handlePointerUp}
           className="w-full h-full block"
         />
-        <div className="absolute bottom-1 right-2 pointer-events-none text-[9px] font-mono text-stone-400">
-          Cuadrícula 20px · Stylus / Táctil / Ratón
-        </div>
-      </div>
-
-      {/* Sección Inferior: Líneas Algebraicas Formalizadas */}
-      <div className="border-t border-[#d4d4d0] p-3 bg-[#faf9f6] space-y-2.5">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-stone-700">
-            Líneas de Resolución Simbólica
-          </span>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={handleAddStep}
-              className="px-2 py-0.5 bg-white hover:bg-[#f7f6f2] border border-[#d4d4d0] text-stone-700 text-[11px] font-mono flex items-center gap-1 cursor-pointer"
-            >
-              <Plus className="w-3 h-3 text-blue-700" />
-              <span>+ Línea</span>
-            </button>
-            <button
-              onClick={handleTransferToCalculator}
-              className="px-2.5 py-1 bg-blue-700 hover:bg-blue-800 text-white font-mono text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>Graficar en Calculadora →</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Lista de expresiones KaTeX vinculadas dinámicamente al input */}
-        <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-          {algebraicSteps.map((step) => {
-            const slotColor = 
-              step.targetSlot === 'y1' ? 'text-blue-700 border-l-4 border-l-blue-700' :
-              step.targetSlot === 'y2' ? 'text-emerald-700 border-l-4 border-l-emerald-700' :
-              step.targetSlot === 'y3' ? 'text-amber-700 border-l-4 border-l-amber-700' :
-              'text-purple-700 border-l-4 border-l-purple-700'
-
-            const currentLatex = formatRawToLatex(step.rawExpression, step.targetSlot, vSymbol, fSymbol)
-
-            return (
-              <div 
-                key={step.id}
-                className={`p-2 bg-white border border-[#d4d4d0] ${slotColor} flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs`}
-              >
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] uppercase font-bold text-stone-500">
-                      {step.label} [{step.targetSlot.toUpperCase()}]
-                    </span>
-                    {algebraicSteps.length > 2 && (
-                      <button
-                        onClick={() => handleRemoveStep(step.id)}
-                        className="text-stone-400 hover:text-red-700 cursor-pointer"
-                        title="Eliminar línea"
-                      >
-                        <Trash className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={step.rawExpression}
-                      onChange={(e) => handleUpdateStep(step.id, e.target.value)}
-                      placeholder={`Escribe fórmula, ej: ${vSymbol === 'x' ? '-2*x^2 + 24*x' : vSymbol === 'q' ? '-3*q^2 + 30*q' : '10*exp(0.5*t)'}`}
-                      className="flex-1 px-2 py-1 bg-[#f7f6f2] border border-[#d4d4d0] font-mono text-xs text-stone-900 focus:outline-none focus:border-blue-700"
-                    />
-                    <div className="bg-[#faf9f6] px-2 py-1 border border-[#e5e5e0] min-w-[130px] flex items-center justify-center overflow-x-auto">
-                      <LatexRenderer latex={currentLatex} className="text-xs" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+        <div className="absolute bottom-2 right-2 pointer-events-none text-[9px] font-mono text-stone-400 bg-white/80 px-2 py-0.5 border border-[#e5e5e0]">
+          Lienzo de dibujo · Stylus / Táctil / Ratón
         </div>
       </div>
     </div>

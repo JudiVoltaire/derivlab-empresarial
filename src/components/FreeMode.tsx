@@ -1,14 +1,18 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { 
   ChevronLeft, 
   ChevronRight, 
-  Target
+  CheckCircle2, 
+  AlertCircle, 
+  Info
 } from 'lucide-react'
-import { WhiteboardCanvas } from './WhiteboardCanvas'
+import { compile } from 'mathjs'
+import { WhiteboardCanvas, formatRawToLatex } from './WhiteboardCanvas'
 import { GraphingCalculator } from './GraphingCalculator'
 import { LatexRenderer } from './LatexRenderer'
 import type { BusinessProblem, ProblemId } from '../types/problem'
-import { getMathjsFormula, getDefaultTangentPoint } from '../services/problemHelpers'
+import { getDefaultTangentPoint } from '../services/problemHelpers'
+import { soundEngine } from '../services'
 
 interface FreeModeProps {
   currentProblem: BusinessProblem
@@ -21,113 +25,175 @@ export const FreeMode: React.FC<FreeModeProps> = ({
   onSelectProblem,
   problemsList 
 }) => {
-  // Índice del problema activo en la lista
+  // Navegación de ejercicios
   const currentIndex = problemsList.findIndex(p => p.id === currentProblem.id)
   const hasPrev = currentIndex > 0
   const hasNext = currentIndex >= 0 && currentIndex < problemsList.length - 1
 
-  // Punto de tangencia representativo para el problema
-  const defaultX0 = getDefaultTangentPoint(currentProblem)
+  // Estado del ejercicio: respuestas del alumno
+  const [userDerivative, setUserDerivative] = useState<string>('')
+  const [userXStar, setUserXStar] = useState<string>('')
+  const [testPointX0, setTestPointX0] = useState<number>(() => getDefaultTangentPoint(currentProblem))
 
-  // Estado compartido entre la pizarra y la calculadora
-  const [calculatorInputs, setCalculatorInputs] = useState<{
-    y1: string
-    y2: string
-    y3: string
-    xStar?: number
-  }>({
-    y1: getMathjsFormula(currentProblem),
-    y2: '',
-    y3: '',
-    xStar: undefined
-  })
+  // Referencia para no repetir el acorde de éxito
+  const hasPlayedSuccessRef = useRef<boolean>(false)
 
-  // Sincronizar automáticamente cuando el usuario cambia de problema
+  // ¿Este problema tiene un punto crítico interior (máximo o mínimo)?
+  const hasCriticalPoint = currentProblem.criticalPoint > 0 && currentProblem.problemNumber >= 4
+
+  // Al cambiar de problema, limpiar respuestas y actualizar punto de prueba
   useEffect(() => {
-    setCalculatorInputs({
-      y1: getMathjsFormula(currentProblem),
-      y2: '',
-      y3: '',
-      xStar: undefined
-    })
+    setUserDerivative('')
+    setUserXStar('')
+    setTestPointX0(getDefaultTangentPoint(currentProblem))
+    hasPlayedSuccessRef.current = false
   }, [currentProblem.id])
 
-  const handleReceiveFromWhiteboard = (data: {
-    y1?: string
-    y2?: string
-    y3?: string
-    xStar?: number
-  }) => {
-    setCalculatorInputs(prev => ({
-      y1: data.y1 !== undefined && data.y1.trim() !== '' ? data.y1 : prev.y1,
-      y2: data.y2 !== undefined ? data.y2 : prev.y2,
-      y3: data.y3 !== undefined ? data.y3 : prev.y3,
-      xStar: data.xStar
-    }))
-  }
-
-  // Definición clara de la meta según el tipo de problema
-  const renderGoalText = () => {
-    const v = currentProblem.variableSymbol
-    const f = currentProblem.functionSymbol
-    const pNum = currentProblem.problemNumber
-
-    if (pNum === 1) {
-      return (
-        <span>
-          <strong>Meta Didáctica:</strong> Derivar la función de costo fijo{' '}
-          <code className="text-blue-800 font-bold">{f}'({v}) = 0</code>, verificar analíticamente que la derivada
-          es idénticamente nula en todo el dominio y comprobar que la recta tangente en{' '}
-          <code className="text-amber-800 font-bold">{v}₀ = {defaultX0}</code> es horizontal.
-        </span>
-      )
+  // Validación de la derivada del alumno en tiempo real
+  const validation = useMemo(() => {
+    if (!userDerivative || !userDerivative.trim()) {
+      return {
+        status: 'empty' as const,
+        message: 'Escribe tu derivada arriba para verla dibujada en verde sobre el gráfico.'
+      }
     }
 
-    if (pNum === 2 || pNum === 3) {
-      return (
-        <span>
-          <strong>Meta Didáctica:</strong> Derivar la función marginal lineal{' '}
-          <code className="text-blue-800 font-bold">{f}'({v})</code>, comprobar la tasa de variación constante y
-          trazar la recta tangente <code className="text-amber-800 font-bold">T({v})</code> en{' '}
-          <code className="text-amber-800 font-bold">{v}₀ = {defaultX0}</code>.
-        </span>
-      )
+    let clean = userDerivative.trim()
+    clean = clean.replace(/^[a-zA-Z_]'\([^)]*\)\s*=\s*/, '')
+    clean = clean.replace(/^[a-zA-Z_]\([^)]*\)\s*=\s*/, '')
+    clean = clean.replace(/(\d)([a-zA-Z])/g, '$1*$2')
+    clean = clean.replace(/(\))([a-zA-Z\d])/g, '$1*$2')
+
+    let userCompiledFn: ((val: number) => number) | null = null
+    try {
+      const compiled = compile(clean)
+      userCompiledFn = (val: number): number => {
+        try {
+          const res = compiled.evaluate({ 
+            x: val, 
+            q: val, 
+            t: val, 
+            p: val, 
+            e: Math.E 
+          })
+          return typeof res === 'number' && !isNaN(res) && isFinite(res) ? res : NaN
+        } catch {
+          return NaN
+        }
+      }
+    } catch {
+      return {
+        status: 'syntax_error' as const,
+        message: 'Revisa la escritura: usa signos y operaciones claros (ej. -4x + 24 o 3/x^2).'
+      }
     }
 
-    return (
-      <span>
-        <strong>Meta Didáctica:</strong> Derivar la función marginal{' '}
-        <code className="text-blue-800 font-bold">{f}'({v})</code>, hallar el punto crítico óptimo{' '}
-        <code className="text-purple-800 font-bold">{v}* = {currentProblem.criticalPoint} {currentProblem.variableUnit}</code>{' '}
-        donde <code className="text-emerald-800 font-bold">{f}'({v}*) = 0</code> y la recta tangente{' '}
-        <code className="text-amber-800 font-bold">T({v})</code> en{' '}
-        <code className="text-amber-800 font-bold">{v}₀ = {defaultX0}</code>.
-      </span>
+    // Comprobar equivalencia matemática contra la derivada real en 4 puntos del dominio
+    const [dMin, dMax] = currentProblem.domain
+    const span = dMax - dMin
+    const testPoints = [
+      dMin + span * 0.2,
+      dMin + span * 0.4,
+      dMin + span * 0.6,
+      dMin + span * 0.8
+    ]
+
+    let maxDiff = 0
+    for (const pt of testPoints) {
+      const studentVal = userCompiledFn(pt)
+      const expectedVal = currentProblem.evaluateDerivative(pt)
+      if (isNaN(studentVal)) {
+        maxDiff = 999
+        break
+      }
+      const diff = Math.abs(studentVal - expectedVal)
+      if (diff > maxDiff) maxDiff = diff
+    }
+
+    const isDerivCorrect = maxDiff < 0.15
+
+    if (!isDerivCorrect) {
+      return {
+        status: 'incorrect' as const,
+        message: 'La línea verde no coincide con la pendiente real de la curva azul. Revisa tus operaciones.'
+      }
+    }
+
+    // Si la derivada es correcta pero falta o está mal el punto crítico
+    if (hasCriticalPoint) {
+      if (!userXStar || userXStar.trim() === '') {
+        return {
+          status: 'partial' as const,
+          message: '¡Derivada correcta! Ahora escribe el punto donde la derivada da 0.'
+        }
+      }
+
+      const parsedXStar = parseFloat(userXStar)
+      if (isNaN(parsedXStar) || Math.abs(parsedXStar - currentProblem.criticalPoint) > 0.15) {
+        return {
+          status: 'partial_wrong_point' as const,
+          message: `La derivada es correcta, pero el punto donde da 0 no coincide con el óptimo real.`
+        }
+      }
+    }
+
+    return {
+      status: 'correct' as const,
+      message: hasCriticalPoint
+        ? `✓ ¡Correcto! Tu derivada coincide con la curva y el punto óptimo está bien calculado.`
+        : `✓ ¡Correcto! Tu derivada coincide exactamente con la función empresarial.`
+    }
+  }, [userDerivative, userXStar, currentProblem, hasCriticalPoint])
+
+  // Disparar sonido de acierto cuando se complete exitosamente
+  useEffect(() => {
+    if (validation.status === 'correct' && !hasPlayedSuccessRef.current) {
+      hasPlayedSuccessRef.current = true
+      soundEngine.playSuccessChord()
+    }
+  }, [validation.status])
+
+  // Formato LaTeX dinámico para la vista previa
+  const liveLatexPreview = useMemo(() => {
+    return formatRawToLatex(
+      userDerivative, 
+      currentProblem.variableSymbol, 
+      currentProblem.functionSymbol
     )
-  }
+  }, [userDerivative, currentProblem.variableSymbol, currentProblem.functionSymbol])
+
+  // Ejemplo sugerido para el placeholder según las variables del ejercicio
+  const placeholderExample = useMemo(() => {
+    const v = currentProblem.variableSymbol
+    if (v === 'q') return '-6q + 30'
+    if (v === 't') return '6t'
+    if (v === 'p') return '-10p + 50'
+    return '-4x + 24'
+  }, [currentProblem.variableSymbol])
 
   return (
     <div id="step-free-mode" className="w-full space-y-4 font-sans">
       
-      {/* 1. TARJETA LIMPIA Y VISIBLE: ENUNCIADO DEL PROBLEMA EMPRESARIAL ACTIVO */}
-      <section className="bg-white border border-[#d4d4d0] p-4 sm:p-5 shadow-xs space-y-3.5">
+      {/* 1. TARJETA PRINCIPAL DEL EJERCICIO (TODO EN UN SOLO LUGAR) */}
+      <section className="bg-white border border-[#d4d4d0] p-4 sm:p-5 shadow-xs space-y-4">
         
-        {/* Cabecera Técnica de la Tarjeta con Navegación Directa */}
+        {/* Barra superior limpia con selector de los 20 problemas */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e5e5e0] pb-3 text-xs font-mono">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 bg-blue-700 inline-block"></span>
-            <span className="font-bold text-stone-900 uppercase tracking-wider text-[11px] sm:text-xs">
-              CASO EMPRESARIAL ACTIVO
+            <span className="font-bold text-stone-900 uppercase">
+              {currentProblem.title.split('·')[0]?.trim()}
             </span>
-            <span className="text-stone-400">|</span>
-            <span className="px-2 py-0.5 bg-[#f7f6f2] border border-[#d4d4d0] text-stone-700 font-bold text-[10px] uppercase">
+            <span className="text-stone-400">·</span>
+            <span className="text-stone-700 font-sans font-medium text-xs">
+              {currentProblem.title.split('·')[1]?.trim() || currentProblem.title}
+            </span>
+            <span className="px-2 py-0.5 bg-[#f7f6f2] border border-[#d4d4d0] text-stone-600 text-[10px] uppercase font-bold">
               Nivel {currentProblem.level}
             </span>
-            <span className="text-stone-400 hidden sm:inline">|</span>
-            <span className="text-stone-600 hidden sm:inline">{currentProblem.economicConcept}</span>
           </div>
 
-          {/* Controles de Navegación Rápida entre Problemas P1 a P20 */}
+          {/* Botones de navegación directa: < Anterior, Selector, Siguiente > */}
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => hasPrev && onSelectProblem(problemsList[currentIndex - 1].id)}
@@ -137,19 +203,18 @@ export const FreeMode: React.FC<FreeModeProps> = ({
                   ? 'bg-white hover:bg-[#f7f6f2] border-[#d4d4d0] text-stone-800 cursor-pointer' 
                   : 'bg-[#faf9f6] border-[#e5e5e0] text-stone-300 cursor-not-allowed'
               }`}
-              title="Ir al problema anterior"
+              title="Problema anterior"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Anterior</span>
             </button>
 
-            {/* Selector Sincronizado */}
             <select
               value={currentProblem.id}
               onChange={(e) => onSelectProblem(e.target.value)}
               className="h-7 px-2 bg-[#f7f6f2] hover:bg-white border border-[#d4d4d0] text-stone-900 font-mono text-[11px] font-bold focus:outline-none focus:border-blue-700 cursor-pointer"
             >
-              <optgroup label="NIVEL I — Muy Simples (Lineales y Constantes)">
+              <optgroup label="NIVEL I — Muy Simples (Constantes y Lineales)">
                 {problemsList.filter(p => p.level === 'I').map(p => (
                   <option key={p.id} value={p.id}>
                     {p.title}
@@ -187,7 +252,7 @@ export const FreeMode: React.FC<FreeModeProps> = ({
                   ? 'bg-white hover:bg-[#f7f6f2] border-[#d4d4d0] text-stone-800 cursor-pointer' 
                   : 'bg-[#faf9f6] border-[#e5e5e0] text-stone-300 cursor-not-allowed'
               }`}
-              title="Ir al problema siguiente"
+              title="Siguiente problema"
             >
               <span className="hidden sm:inline">Siguiente</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -195,68 +260,112 @@ export const FreeMode: React.FC<FreeModeProps> = ({
           </div>
         </div>
 
-        {/* Título y Enunciado Completo del Caso */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-          <div className="lg:col-span-8 space-y-2">
-            <h1 className="text-base sm:text-lg font-bold text-stone-900 tracking-tight flex items-center gap-2">
-              <span>{currentProblem.title}</span>
-            </h1>
-            <p className="text-xs text-stone-600 leading-relaxed text-justify">
-              {currentProblem.story}
-            </p>
-          </div>
+        {/* Línea breve de contexto empresarial y Fórmula en grande */}
+        <div className="space-y-2">
+          <p className="text-xs text-stone-600 font-sans leading-relaxed">
+            {currentProblem.economicConcept} · {currentProblem.story.split('.')[0]}.
+          </p>
 
-          {/* Caja con la Ecuación Primaria Renderizada en KaTeX */}
-          <div className="lg:col-span-4 p-3 bg-[#faf9f6] border border-[#e5e5e0] space-y-1.5 shrink-0">
-            <span className="font-mono text-[10px] uppercase font-bold text-stone-500 block">
-              Ecuación del Modelo
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-stone-800">
+              Deriva esta función:
             </span>
-            <div className="py-1 px-2 bg-white border border-[#d4d4d0] flex items-center justify-center text-sm font-bold text-blue-900 overflow-x-auto">
-              <LatexRenderer latex={currentProblem.functionLatex} displayMode={false} className="text-sm font-semibold" />
-            </div>
-            <div className="flex items-center justify-between text-[10px] font-mono text-stone-500">
-              <span>Var: <strong className="text-stone-800">{currentProblem.variableSymbol}</strong> ({currentProblem.variableUnit})</span>
-              <span>Mag: <strong className="text-stone-800">{currentProblem.functionSymbol}</strong> ({currentProblem.functionUnit})</span>
+            <div className="py-1.5 px-3.5 bg-[#f7f6f2] border border-[#d4d4d0] inline-block shadow-2xs">
+              <LatexRenderer 
+                latex={currentProblem.functionLatex} 
+                className="text-lg sm:text-xl font-bold text-blue-900" 
+              />
             </div>
           </div>
         </div>
 
-        {/* Franja de Meta Didáctica Exacta para el Estudiante */}
-        <div className="p-3 bg-[#f7f6f2] border-l-4 border-l-blue-700 border border-[#d4d4d0] flex items-start gap-2.5 text-xs text-stone-800 leading-relaxed">
-          <Target className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            {renderGoalText()}
+        {/* EL ÚNICO LUGAR PARA PONER LA RESPUESTA */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 pt-3 border-t border-[#f1f1ee] items-end">
+          
+          {/* Caja Principal: Tu respuesta (Derivada) */}
+          <div className={hasCriticalPoint ? "md:col-span-8 space-y-1.5" : "md:col-span-12 space-y-1.5"}>
+            <label className="block text-xs font-mono font-bold text-stone-900 uppercase">
+              Tu respuesta (Derivada):
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={userDerivative}
+                onChange={(e) => setUserDerivative(e.target.value)}
+                placeholder={`Escribe tu derivada aquí (ej: ${placeholderExample})`}
+                className="flex-1 px-3 py-2 bg-white border-2 border-stone-300 focus:border-blue-700 font-mono text-sm text-stone-900 focus:outline-none shadow-2xs transition-colors"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              {/* Vista previa KaTeX al lado */}
+              <div className="min-w-[150px] px-3 py-2 bg-[#faf9f6] border border-[#d4d4d0] flex items-center justify-center font-mono text-xs overflow-x-auto">
+                <LatexRenderer latex={liveLatexPreview} />
+              </div>
+            </div>
           </div>
+
+          {/* Caja Secundaria: Punto donde da 0 (Máximo/Mínimo) - solo si aplica */}
+          {hasCriticalPoint && (
+            <div className="md:col-span-4 space-y-1.5">
+              <label className="block text-xs font-mono font-bold text-stone-900 uppercase">
+                Punto donde da 0 (Máximo/Mínimo):
+              </label>
+              <input
+                type="number"
+                step="any"
+                value={userXStar}
+                onChange={(e) => setUserXStar(e.target.value)}
+                placeholder={`Valor de ${currentProblem.variableSymbol}*`}
+                className="w-full px-3 py-2 bg-white border-2 border-stone-300 focus:border-blue-700 font-mono text-sm text-stone-900 focus:outline-none shadow-2xs transition-colors"
+              />
+            </div>
+          )}
+
+        </div>
+
+        {/* Barra de Retroalimentación en Lenguaje Simple */}
+        <div className={`p-2.5 border font-mono text-xs flex items-center gap-2 transition-colors ${
+          validation.status === 'correct' 
+            ? 'bg-emerald-50 border-emerald-400 text-emerald-900' 
+            : validation.status === 'partial' || validation.status === 'partial_wrong_point'
+            ? 'bg-blue-50 border-blue-300 text-blue-900'
+            : validation.status === 'incorrect' || validation.status === 'syntax_error'
+            ? 'bg-amber-50 border-amber-300 text-amber-900'
+            : 'bg-[#faf9f6] border-[#e5e5e0] text-stone-600'
+        }`}>
+          {validation.status === 'correct' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+          ) : validation.status === 'partial' || validation.status === 'partial_wrong_point' ? (
+            <Info className="w-4 h-4 text-blue-700 shrink-0" />
+          ) : validation.status === 'incorrect' || validation.status === 'syntax_error' ? (
+            <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+          ) : (
+            <Info className="w-4 h-4 text-stone-500 shrink-0" />
+          )}
+          <span className="font-sans text-xs font-medium">
+            {validation.message}
+          </span>
         </div>
 
       </section>
 
-      {/* 2. GRID DE DOS COLUMNAS: PIZARRA CIENTÍFICA (IZQ) Y MOTOR CARTESIANO (DER) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+      {/* 2. DISEÑO LIMPIO DE 2 COLUMNAS: PIZARRA (IZQ) + GRÁFICO AUTOMÁTICO (DER) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
         
-        {/* Columna Izquierda: Pizarra con Tinta Digital y Líneas Simbólicas */}
-        <div className="lg:col-span-6 space-y-4">
-          <WhiteboardCanvas
-            onSendToCalculator={handleReceiveFromWhiteboard}
-            initialExpressions={{
-              y1: calculatorInputs.y1,
-              y2: calculatorInputs.y2,
-              y3: calculatorInputs.y3,
-              xStar: calculatorInputs.xStar
-            }}
-            problem={currentProblem}
-          />
+        {/* Columna Izquierda: Pizarra de Borrador (Haz tus cuentas aquí) */}
+        <div className="lg:col-span-6 flex flex-col">
+          <WhiteboardCanvas className="flex-1" />
         </div>
 
-        {/* Columna Derecha: Calculadora Gráfica con Doble Prueba Geométrica */}
-        <div className="lg:col-span-6 space-y-4">
+        {/* Columna Derecha: Gráfico en Vivo (Curva Azul + Derivada Verde en Vivo) */}
+        <div className="lg:col-span-6 flex flex-col">
           <GraphingCalculator
-            initialY1={calculatorInputs.y1}
-            initialY2={calculatorInputs.y2}
-            initialY3={calculatorInputs.y3}
-            initialXStar={calculatorInputs.xStar}
-            domainX={currentProblem.domain}
             problem={currentProblem}
+            userDerivative={userDerivative}
+            userXStar={userXStar ? parseFloat(userXStar) : undefined}
+            testPointX0={testPointX0}
+            onChangeTestPointX0={setTestPointX0}
+            className="flex-1"
           />
         </div>
 

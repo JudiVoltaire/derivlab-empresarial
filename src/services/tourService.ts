@@ -80,7 +80,7 @@ export const initRouteATour = (): Driver => {
   return driverObj
 }
 
-// RUTA B: Tour Rápido Modo Libre (Pizarra + Graficadora Científica)
+// RUTA B: Tour Rápido Modo Libre (Pizarra de Borrador + Gráfico en Vivo)
 export const initRouteBTour = (): Driver => {
   const driverObj = driver({
     showProgress: true,
@@ -91,7 +91,7 @@ export const initRouteBTour = (): Driver => {
     popoverClass: 'derivlab-driver-popover',
     nextBtnText: 'Siguiente →',
     prevBtnText: '← Anterior',
-    doneBtnText: 'Finalizar Tour Rápido',
+    doneBtnText: '¡Entendido!',
     progressText: 'Paso {{current}} de {{total}}',
     disableActiveInteraction: false,
     onDestroyStarted: () => {
@@ -100,39 +100,30 @@ export const initRouteBTour = (): Driver => {
     },
     steps: [
       {
-        element: '#step-whiteboard',
+        element: '#step-free-mode',
         popover: {
-          title: 'Paso 1: Pizarra Universitaria Híbrida',
-          description: 'Dibuja esquemas con tinta digital a 60 FPS (ratón, táctil o stylus). Abajo puedes formular tus ecuaciones en notación matemática estándar.',
-          side: 'right',
-          align: 'start'
-        }
-      },
-      {
-        element: '#step-whiteboard',
-        popover: {
-          title: 'Paso 2: Inyección Simbólica a la Calculadora',
-          description: 'Haz clic en el botón azul "[Graficar en Calculadora →]" para transferir instantáneamente f(x), f\'(x) y el punto crítico a la columna derecha.',
+          title: 'Paso 1: Ejercicio Empresarial y Respuesta Directa',
+          description: 'Selecciona cualquiera de los 20 problemas en la barra superior. Lee la función a derivar y escribe tu respuesta en la caja. Si el problema tiene máximo o mínimo, completa también el punto donde da 0.',
           side: 'bottom',
           align: 'center'
         }
       },
       {
-        element: '#step-graphing-calc',
+        element: '#step-whiteboard',
         popover: {
-          title: 'Paso 3: Motor Cartesiano de Doble Prueba',
-          description: 'La calculadora renderiza las curvas y1 = f(x), y2 = f\'(x) y la recta tangente y3. Permite zoom y panorámica con ratón o gestos táctiles.',
-          side: 'left',
+          title: 'Paso 2: Pizarra de Borrador',
+          description: 'Usa este espacio libre para hacer tus operaciones y bocetos a mano antes de escribir tu respuesta definitiva.',
+          side: 'right',
           align: 'start'
         }
       },
       {
-        element: '#step-intersection-badge',
+        element: '#step-graphing-calc',
         popover: {
-          title: 'Paso 4: Validación Geométrica Anti-Falsos Positivos',
-          description: 'El motor verifica a 1000 puntos que f\'(x*) = 0 coincide con el extremo local y que la pendiente de la recta tangente coincide con la derivada en el punto de prueba.',
-          side: 'top',
-          align: 'center'
+          title: 'Paso 3: Gráfico en Vivo Automático',
+          description: 'A medida que escribes tu derivada, se dibuja automáticamente en verde en tiempo real sobre la curva azul. Puedes acercar, alejar y mover el punto sobre la curva con el control inferior.',
+          side: 'left',
+          align: 'start'
         }
       }
     ]
