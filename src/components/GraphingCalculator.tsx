@@ -11,6 +11,8 @@ import {
   Sliders
 } from 'lucide-react'
 import { compile } from 'mathjs'
+import type { BusinessProblem } from '../types/problem'
+import { getOptimalCameraBounds, getDefaultTangentPoint } from '../services/problemHelpers'
 
 interface GraphingCalculatorProps {
   initialY1?: string
@@ -18,6 +20,7 @@ interface GraphingCalculatorProps {
   initialY3?: string
   initialXStar?: number
   domainX?: [number, number]
+  problem?: BusinessProblem
 }
 
 interface CurveSlot {
@@ -39,18 +42,23 @@ interface IntersectionPoint {
 
 export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
   initialY1 = '-2*x^2 + 24*x',
-  initialY2 = '-4*x + 24',
-  initialY3 = '12*x - 36',
-  initialXStar = 6,
-  domainX = [0, 12]
+  initialY2 = '',
+  initialY3 = '',
+  initialXStar,
+  domainX = [0, 12],
+  problem
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+
+  // Símbolos de variable y función
+  const vSymbol = problem?.variableSymbol || 'x'
+  const fSymbol = problem?.functionSymbol || 'f'
 
   // Ranuras de funciones
   const [slots, setSlots] = useState<CurveSlot[]>([
     {
       id: 'y1',
-      label: 'y₁ = f(x)',
+      label: `y₁ = ${fSymbol}(${vSymbol})`,
       color: '#1d4ed8', // Azul cobalto
       rawExpression: initialY1,
       visible: true,
@@ -58,7 +66,7 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
     },
     {
       id: 'y2',
-      label: "y₂ = f'(x)",
+      label: `y₂ = ${fSymbol}'(${vSymbol})`,
       color: '#15803d', // Verde bosque
       rawExpression: initialY2,
       visible: true,
@@ -66,7 +74,7 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
     },
     {
       id: 'y3',
-      label: 'y₃ = T(x)',
+      label: `y₃ = T(${vSymbol})`,
       color: '#d97706', // Ámbar / Naranja
       rawExpression: initialY3,
       visible: true,
@@ -74,23 +82,30 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
     },
     {
       id: 'xStar',
-      label: 'x = x*',
+      label: `${vSymbol} = ${vSymbol}*`,
       color: '#7c3aed', // Púrpura punteado
-      rawExpression: initialXStar.toString(),
+      rawExpression: initialXStar !== undefined ? initialXStar.toString() : '',
       visible: true,
       isCompiledOk: true
     }
   ])
 
   // Punto de tangencia de prueba x₀
-  const [tangentX0, setTangentX0] = useState<number>(3)
+  const [tangentX0, setTangentX0] = useState<number>(() => {
+    return problem ? getDefaultTangentPoint(problem) : 3
+  })
 
   // Estado de la cámara cartesiana
-  const [viewState, setViewState] = useState({
-    minX: domainX[0] - 1,
-    maxX: domainX[1] + 1,
-    minY: -15,
-    maxY: 85
+  const [viewState, setViewState] = useState(() => {
+    if (problem) {
+      return getOptimalCameraBounds(problem)
+    }
+    return {
+      minX: domainX[0] - 1,
+      maxX: domainX[1] + 1,
+      minY: -15,
+      maxY: 85
+    }
   })
 
   // Estado de arrastre del canvas (Pan)
@@ -102,21 +117,58 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
   const [hoveredNode, setHoveredNode] = useState<IntersectionPoint | null>(null)
   const [mouseCanvasPos, setMouseCanvasPos] = useState<{ x: number; y: number } | null>(null)
 
-  // Actualizar slots cuando cambien props iniciales
+  // Actualizar slots y cámara automáticamente al cambiar de problema o de entradas iniciales
   useEffect(() => {
-    setSlots(prev => prev.map(s => {
-      if (s.id === 'y1' && initialY1) return { ...s, rawExpression: initialY1 }
-      if (s.id === 'y2' && initialY2) return { ...s, rawExpression: initialY2 }
-      if (s.id === 'y3' && initialY3) return { ...s, rawExpression: initialY3 }
-      if (s.id === 'xStar' && initialXStar !== undefined) return { ...s, rawExpression: initialXStar.toString() }
-      return s
-    }))
-  }, [initialY1, initialY2, initialY3, initialXStar])
+    setSlots([
+      {
+        id: 'y1',
+        label: `y₁ = ${fSymbol}(${vSymbol})`,
+        color: '#1d4ed8',
+        rawExpression: initialY1 || '',
+        visible: true,
+        isCompiledOk: true
+      },
+      {
+        id: 'y2',
+        label: `y₂ = ${fSymbol}'(${vSymbol})`,
+        color: '#15803d',
+        rawExpression: initialY2 || '',
+        visible: true,
+        isCompiledOk: true
+      },
+      {
+        id: 'y3',
+        label: `y₃ = T(${vSymbol})`,
+        color: '#d97706',
+        rawExpression: initialY3 || '',
+        visible: true,
+        isCompiledOk: true
+      },
+      {
+        id: 'xStar',
+        label: `${vSymbol} = ${vSymbol}*`,
+        color: '#7c3aed',
+        rawExpression: initialXStar !== undefined ? initialXStar.toString() : '',
+        visible: true,
+        isCompiledOk: true
+      }
+    ])
+
+    if (problem) {
+      setViewState(getOptimalCameraBounds(problem))
+      setTangentX0(getDefaultTangentPoint(problem))
+    }
+  }, [problem?.id, initialY1, initialY2, initialY3, initialXStar, vSymbol, fSymbol])
 
   // Función auxiliar para parsear y compilar expresiones con mathjs
   const prepareExpression = (expr: string): string => {
     let clean = expr.trim()
-    // Añadir multiplicación implícita entre números y variables (ej. 2x -> 2*x, 4x^2 -> 4*x^2)
+    // Limpiar notación de asignación si el alumno la incluyó
+    clean = clean.replace(/^[a-zA-Z_]\([^)]*\)\s*=\s*/, '')
+    clean = clean.replace(/^[a-zA-Z_]'\([^)]*\)\s*=\s*/, '')
+    clean = clean.replace(/^[a-zA-Z_]\*\s*=\s*/, '')
+
+    // Añadir multiplicación implícita
     clean = clean.replace(/(\d)([a-zA-Z])/g, '$1*$2')
     clean = clean.replace(/(\))([a-zA-Z\d])/g, '$1*$2')
     return clean
@@ -125,6 +177,9 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
   // Compilar funciones mathjs
   const compiledFunctions = useMemo(() => {
     const compileSafe = (raw: string) => {
+      if (!raw || !raw.trim()) {
+        return { fn: () => NaN, ok: false, empty: true }
+      }
       try {
         const cleaned = prepareExpression(raw)
         const compiled = compile(cleaned)
@@ -137,12 +192,14 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
               return NaN
             }
           },
-          ok: true
+          ok: true,
+          empty: false
         }
       } catch (err) {
         return {
           fn: () => NaN,
           ok: false,
+          empty: false,
           error: (err as Error).message
         }
       }
@@ -156,13 +213,16 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
     const y1Compiled = compileSafe(y1Slot?.rawExpression || '')
     const y2Compiled = compileSafe(y2Slot?.rawExpression || '')
     const y3Compiled = compileSafe(y3Slot?.rawExpression || '')
-    const parsedXStar = parseFloat(xStarSlot?.rawExpression || 'NaN')
+    const parsedXStar = xStarSlot && xStarSlot.rawExpression.trim() !== ''
+      ? parseFloat(xStarSlot.rawExpression)
+      : NaN
 
     return {
       y1: y1Compiled,
       y2: y2Compiled,
       y3: y3Compiled,
-      xStar: isNaN(parsedXStar) ? null : parsedXStar
+      xStar: isNaN(parsedXStar) ? null : parsedXStar,
+      rawXStar: xStarSlot?.rawExpression.trim() || ''
     }
   }, [slots])
 
@@ -173,7 +233,13 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
     const intersections: IntersectionPoint[] = []
     const { y1, y2, y3, xStar } = compiledFunctions
 
-    if (!y1.ok && !y2.ok) return { intersections, verdictOk: false, verdictMsg: 'Esperando funciones válidas...' }
+    if (!y1.ok && !y2.ok) {
+      return { 
+        intersections, 
+        verdictOk: false, 
+        verdictMsg: 'Esperando ingreso de funciones en la pizarra o ranuras...' 
+      }
+    }
 
     const stepSize = (viewState.maxX - viewState.minX) / 1000
     const sampleRange = [viewState.minX, viewState.maxX]
@@ -205,7 +271,7 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
             x: rootX,
             y: 0,
             type: 'root',
-            label: `f'(x*) = 0 en x = ${rootX.toFixed(2)}`
+            label: `f'(${vSymbol}*) = 0 en ${vSymbol} = ${rootX.toFixed(2)}`
           })
         }
         prevSign = currentSign
@@ -220,64 +286,95 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
           x: xStar,
           y: Math.round(yValAtXStar * 100) / 100,
           type: 'cross',
-          label: `Extremo V*(x*, f(x*)) = (${xStar.toFixed(2)}, ${yValAtXStar.toFixed(2)})`
+          label: `Extremo V*(${vSymbol}*, ${fSymbol}(${vSymbol}*)) = (${xStar.toFixed(2)}, ${yValAtXStar.toFixed(2)})`
         })
       }
     }
 
-    // 3. Validación Anti-Falsos Positivos
-    let verdictOk = false
-    let verdictMsg = ''
+    // 3. Validación Anti-Falsos Positivos con el Problema Activo
+    if (!y2.ok || y2.empty) {
+      return {
+        intersections,
+        verdictOk: false,
+        verdictMsg: `Paso pendiente: Escribe la derivada en y₂ para activar la Doble Prueba.`
+      }
+    }
 
-    if (xStar !== null && y2.ok && y1.ok) {
-      const derivAtXStar = y2.fn(xStar)
-      const isDerivZero = Math.abs(derivAtXStar) < 0.05
+    // Validar si la derivada y₂ del estudiante coincide con la derivada real del problema
+    if (problem) {
+      const testPoints = [
+        problem.domain[0] + (problem.domain[1] - problem.domain[0]) * 0.2,
+        problem.domain[0] + (problem.domain[1] - problem.domain[0]) * 0.4,
+        problem.domain[0] + (problem.domain[1] - problem.domain[0]) * 0.6,
+        problem.domain[0] + (problem.domain[1] - problem.domain[0]) * 0.8
+      ]
 
-      // Verificar si x* es extremo de y1 evaluando vecindades pequeñas
-      const eps = 0.05
-      const yCenter = y1.fn(xStar)
-      const yLeft = y1.fn(xStar - eps)
-      const yRight = y1.fn(xStar + eps)
-      const isExtremum = (yCenter >= yLeft && yCenter >= yRight) || (yCenter <= yLeft && yCenter <= yRight)
+      let maxDiff = 0
+      for (const pt of testPoints) {
+        const studentVal = y2.fn(pt)
+        const expectedVal = problem.evaluateDerivative(pt)
+        if (isNaN(studentVal)) {
+          maxDiff = 999
+          break
+        }
+        const diff = Math.abs(studentVal - expectedVal)
+        if (diff > maxDiff) maxDiff = diff
+      }
 
-      // Verificar tangencia de y3 si está activa
-      let isTangentValid = true
-      let tangentMsg = ''
-      if (y3.ok) {
-        // Pendiente de la recta tangente y3(x)
-        const y3_0 = y3.fn(tangentX0)
-        const y3_1 = y3.fn(tangentX0 + 1)
-        const studentSlope = y3_1 - y3_0
-        const exactSlope = y2.fn(tangentX0)
-        const slopeDiff = Math.abs(studentSlope - exactSlope)
+      if (maxDiff > 0.15) {
+        return {
+          intersections,
+          verdictOk: false,
+          verdictMsg: `⚠ Discrepancia en y₂: La función escrita no coincide con la derivada marginal real de ${problem.title.split('·')[0]}.`
+        }
+      }
+    }
 
-        if (slopeDiff > 0.08) {
-          isTangentValid = false
-          tangentMsg = `Discrepancia en tangente y₃: pendiente m=${studentSlope.toFixed(2)} difiere de f'(${tangentX0})=${exactSlope.toFixed(2)} (Δm=${slopeDiff.toFixed(2)}).`
+    // Si el problema tiene punto crítico interior (ej. cuadráticas, EOQ, cúbicas)
+    const hasInteriorCriticalPoint = problem && problem.problemNumber >= 4 && problem.criticalPoint > 0
+
+    if (hasInteriorCriticalPoint) {
+      if (xStar === null) {
+        return {
+          intersections,
+          verdictOk: false,
+          verdictMsg: `Derivada correcta. Falta hallar el punto crítico ${vSymbol}* en la ranura ${vSymbol}=${vSymbol}*.`
         }
       }
 
-      if (isDerivZero && isExtremum && isTangentValid) {
-        verdictOk = true
-        verdictMsg = `✓ Intersección y Tangencia Exactas — Derivada Validada en x* = ${xStar.toFixed(2)}`
-      } else if (!isDerivZero) {
-        verdictOk = false
-        verdictMsg = `⚠ Discrepancia: f'(${xStar.toFixed(2)}) = ${derivAtXStar.toFixed(3)} ≠ 0 (No anula la tasa marginal).`
-      } else if (!isTangentValid) {
-        verdictOk = false
-        verdictMsg = `⚠ ${tangentMsg}`
-      } else {
-        verdictOk = false
-        verdictMsg = `⚠ Discrepancia: x* = ${xStar.toFixed(2)} anula f' pero no constituye un extremo local en y₁.`
+      const diffXStar = Math.abs(xStar - problem.criticalPoint)
+      if (diffXStar > 0.1) {
+        return {
+          intersections,
+          verdictOk: false,
+          verdictMsg: `⚠ Discrepancia en ${vSymbol}*: El valor ingresado (${xStar}) difiere del punto óptimo real (${problem.criticalPoint}).`
+        }
+      }
+    }
+
+    // Verificar tangencia de y3 si el alumno la completó
+    if (y3.ok && !y3.empty) {
+      const y3_0 = y3.fn(tangentX0)
+      const y3_1 = y3.fn(tangentX0 + 1)
+      const studentSlope = y3_1 - y3_0
+      const expectedSlope = problem ? problem.evaluateDerivative(tangentX0) : y2.fn(tangentX0)
+      const slopeDiff = Math.abs(studentSlope - expectedSlope)
+
+      if (slopeDiff > 0.1) {
+        return {
+          intersections,
+          verdictOk: false,
+          verdictMsg: `⚠ Discrepancia en recta tangente y₃: pendiente m=${studentSlope.toFixed(2)} difiere de f'(${tangentX0})=${expectedSlope.toFixed(2)}.`
+        }
       }
     }
 
     return {
       intersections,
-      verdictOk,
-      verdictMsg
+      verdictOk: true,
+      verdictMsg: `✓ Intersección y Tangencia Exactas — Derivada y Óptimo Validados (${problem ? problem.title.split('·')[0] : ''})`
     }
-  }, [compiledFunctions, viewState, tangentX0])
+  }, [compiledFunctions, viewState, tangentX0, problem, vSymbol, fSymbol])
 
   // Conversión Cartesiana a Píxeles
   const toScreenX = useCallback((xVal: number, width: number) => {
@@ -313,8 +410,10 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
     ctx.fillRect(0, 0, width, height)
 
     // Rejilla Milimetrada Cartesiana
-    const xStep = Math.max(1, Math.round((viewState.maxX - viewState.minX) / 10))
-    const yStep = Math.max(5, Math.round((viewState.maxY - viewState.minY) / 8))
+    const xRange = viewState.maxX - viewState.minX
+    const yRange = viewState.maxY - viewState.minY
+    const xStep = Math.max(1, Math.round(xRange / 10))
+    const yStep = Math.max(1, Math.round(yRange / 8))
 
     ctx.strokeStyle = '#f1f1ee'
     ctx.lineWidth = 1
@@ -363,7 +462,7 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
     for (let y = Math.floor(viewState.minY); y <= viewState.maxY; y += yStep) {
       if (y === 0) continue
       const sy = toScreenY(y, height)
-      ctx.fillText(`${y}`, Math.min(width - 24, Math.max(4, originX + 4)), sy + 3)
+      ctx.fillText(`${y}`, Math.min(width - 32, Math.max(4, originX + 4)), sy + 3)
     }
 
     // ==========================================
@@ -502,12 +601,16 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
 
   // Auto-encuadrar vista
   const handleAutoFit = () => {
-    setViewState({
-      minX: domainX[0] - 1,
-      maxX: domainX[1] + 1,
-      minY: -15,
-      maxY: 85
-    })
+    if (problem) {
+      setViewState(getOptimalCameraBounds(problem))
+    } else {
+      setViewState({
+        minX: domainX[0] - 1,
+        maxX: domainX[1] + 1,
+        minY: -15,
+        maxY: 85
+      })
+    }
   }
 
   // Manejo de Pan / Arrastre del Canvas
@@ -576,7 +679,6 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
     handleZoom(factor)
   }
 
-  // Actualizar expresión de una ranura
   const handleUpdateSlot = (id: string, val: string) => {
     setSlots(prev => prev.map(s => s.id === id ? { ...s, rawExpression: val } : s))
   }
@@ -590,12 +692,12 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
       {/* Cabecera Técnica de la Graficadora */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e5e5e0] pb-2 text-xs font-mono">
         <div className="flex items-center gap-2">
-          <span className="font-bold text-stone-900 flex items-center gap-1.5">
-            <Crosshair className="w-3.5 h-3.5 text-blue-700" />
+          <Crosshair className="w-3.5 h-3.5 text-blue-700" />
+          <span className="font-bold text-stone-900">
             MOTOR CARTESIANO DE DOBLE PRUEBA
           </span>
           <span className="text-stone-400">|</span>
-          <span className="text-stone-500 text-[11px]">Desmos / GeoGebra Spec</span>
+          <span className="text-stone-500 text-[11px]">{problem?.title.split('·')[0] || 'Desmos Spec'}</span>
         </div>
 
         {/* Botones de Cámara */}
@@ -617,7 +719,7 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
           <button
             onClick={handleAutoFit}
             className="px-2 py-1 border border-[#d4d4d0] bg-white text-stone-700 hover:bg-[#f7f6f2] cursor-pointer flex items-center gap-1 text-[11px]"
-            title="Auto-encuadrar vista"
+            title="Auto-encuadrar vista óptima"
           >
             <Maximize2 className="w-3 h-3 text-stone-600" />
             <span>Encuadrar</span>
@@ -641,14 +743,14 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
                 {slot.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5 text-stone-300" />}
               </button>
               <span className="w-2.5 h-2.5 inline-block shrink-0" style={{ backgroundColor: slot.color }} />
-              <span className="font-bold text-stone-800 text-[11px] min-w-[50px]">{slot.label}</span>
+              <span className="font-bold text-stone-800 text-[11px] min-w-[55px]">{slot.label}</span>
             </div>
 
             <input
               type="text"
               value={slot.rawExpression}
               onChange={(e) => handleUpdateSlot(slot.id, e.target.value)}
-              placeholder="f(x)"
+              placeholder={slot.id === 'y1' ? 'f(x)' : slot.id === 'y2' ? "Escribe f'(x)" : slot.id === 'y3' ? 'Escribe T(x)' : 'x*'}
               className="flex-1 px-1.5 py-0.5 bg-white border border-[#d4d4d0] text-xs font-mono text-stone-900 focus:outline-none focus:border-blue-700"
             />
           </div>
@@ -661,7 +763,7 @@ export const GraphingCalculator: React.FC<GraphingCalculatorProps> = ({
           <Sliders className="w-3.5 h-3.5 text-amber-600 shrink-0" />
           <span className="text-stone-700 font-bold">Punto de Tangencia de Prueba:</span>
           <span className="px-1.5 py-0.5 bg-white border border-[#d4d4d0] font-bold text-stone-900">
-            x₀ = {tangentX0}
+            {vSymbol}₀ = {tangentX0}
           </span>
         </div>
         <input

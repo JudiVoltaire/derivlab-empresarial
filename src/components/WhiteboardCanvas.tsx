@@ -9,6 +9,7 @@ import {
   Trash
 } from 'lucide-react'
 import { LatexRenderer } from './LatexRenderer'
+import type { BusinessProblem } from '../types/problem'
 
 interface WhiteboardCanvasProps {
   onSendToCalculator?: (data: {
@@ -20,21 +21,69 @@ interface WhiteboardCanvasProps {
   initialExpressions?: {
     y1?: string
     y2?: string
+    y3?: string
     xStar?: number
   }
+  problem?: BusinessProblem
 }
 
 interface AlgebraicStep {
   id: string
   label: string
   rawExpression: string
-  latexExpression: string
   targetSlot: 'y1' | 'y2' | 'y3' | 'xStar'
+}
+
+/**
+ * Convierte dinámicamente cualquier entrada de texto a notación KaTeX válida
+ */
+export const formatRawToLatex = (
+  raw: string,
+  target: 'y1' | 'y2' | 'y3' | 'xStar',
+  variableSymbol: string = 'x',
+  functionSymbol: string = 'f'
+): string => {
+  const v = variableSymbol
+  const f = functionSymbol
+  const prefix = 
+    target === 'y1' ? `${f}(${v}) = ` :
+    target === 'y2' ? `${f}'(${v}) = ` :
+    target === 'y3' ? `T(${v}) = ` :
+    `${v}^* = `
+
+  if (!raw || !raw.trim()) {
+    return `${prefix}\\dots`
+  }
+
+  let clean = raw.trim()
+  // Limpiar posibles prefijos si el estudiante escribió "f(x) =" o "x* ="
+  clean = clean.replace(/^[a-zA-Z_]\([^)]*\)\s*=\s*/, '')
+  clean = clean.replace(/^[a-zA-Z_]'\([^)]*\)\s*=\s*/, '')
+  clean = clean.replace(/^[a-zA-Z_]\*\s*=\s*/, '')
+
+  // Exponenciales: exp(...) -> e^{...} o e^(...) -> e^{...}
+  clean = clean.replace(/exp\(([^)]+)\)/g, 'e^{$1}')
+  clean = clean.replace(/e\^\{([^}]+)\}/g, 'e^{$1}')
+  clean = clean.replace(/e\^([a-zA-Z0-9_.-]+)/g, 'e^{$1}')
+
+  // Fracciones simples: a/b, a/x, a/x^2
+  clean = clean.replace(/(\d+)\/([a-zA-Z]\^2)/g, '\\frac{$1}{$2}')
+  clean = clean.replace(/(\d+)\/([a-zA-Z])/g, '\\frac{$1}{$2}')
+  clean = clean.replace(/([a-zA-Z\d]+)\/([a-zA-Z\d]+)/g, '\\frac{$1}{$2}')
+
+  // Potencias: x^2 -> x^{2}
+  clean = clean.replace(/([a-zA-Z])\^(\d+)/g, '$1^{$2}')
+
+  // Multiplicaciones explícitas: * -> espacio fino
+  clean = clean.replace(/\*/g, ' ')
+
+  return `${prefix}${clean}`
 }
 
 export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
   onSendToCalculator,
-  initialExpressions
+  initialExpressions,
+  problem
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [tool, setTool] = useState<'pen' | 'eraser'>('pen')
@@ -45,30 +94,54 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
   const historyRef = useRef<ImageData[]>([])
   const [canUndo, setCanUndo] = useState(false)
 
+  const vSymbol = problem?.variableSymbol || 'x'
+  const fSymbol = problem?.functionSymbol || 'f'
+
   // Líneas algebraicas formalizadas
   const [algebraicSteps, setAlgebraicSteps] = useState<AlgebraicStep[]>([
     {
       id: 'step-1',
-      label: 'Función Total f(x)',
-      rawExpression: initialExpressions?.y1 || '-2*x^2 + 24*x',
-      latexExpression: 'f(x) = -2x^2 + 24x',
+      label: `Función Total ${fSymbol}(${vSymbol})`,
+      rawExpression: initialExpressions?.y1 || '',
       targetSlot: 'y1'
     },
     {
       id: 'step-2',
-      label: "Función Marginal f'(x)",
-      rawExpression: initialExpressions?.y2 || '-4*x + 24',
-      latexExpression: "f'(x) = -4x + 24",
+      label: `Función Marginal ${fSymbol}'(${vSymbol})`,
+      rawExpression: initialExpressions?.y2 || '',
       targetSlot: 'y2'
     },
     {
       id: 'step-3',
-      label: 'Punto Crítico x*',
-      rawExpression: initialExpressions?.xStar?.toString() || '6',
-      latexExpression: 'x^* = 6',
+      label: `Punto Crítico ${vSymbol}*`,
+      rawExpression: initialExpressions?.xStar !== undefined ? initialExpressions.xStar.toString() : '',
       targetSlot: 'xStar'
     }
   ])
+
+  // Sincronizar pasos algebraicos automáticamente cuando cambie initialExpressions o el problema
+  useEffect(() => {
+    setAlgebraicSteps([
+      {
+        id: 'step-1',
+        label: `Función Total ${fSymbol}(${vSymbol})`,
+        rawExpression: initialExpressions?.y1 || '',
+        targetSlot: 'y1'
+      },
+      {
+        id: 'step-2',
+        label: `Función Marginal ${fSymbol}'(${vSymbol})`,
+        rawExpression: initialExpressions?.y2 || '',
+        targetSlot: 'y2'
+      },
+      {
+        id: 'step-3',
+        label: `Punto Crítico ${vSymbol}*`,
+        rawExpression: initialExpressions?.xStar !== undefined ? initialExpressions.xStar.toString() : '',
+        targetSlot: 'xStar'
+      }
+    ])
+  }, [initialExpressions?.y1, initialExpressions?.y2, initialExpressions?.xStar, vSymbol, fSymbol])
 
   // Dibujar cuadrícula técnica
   const drawGrid = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
@@ -260,25 +333,13 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
     }
   }
 
-  // Convertir expresión a LaTeX básico
-  const formatRawToLatex = (raw: string, target: string): string => {
-    let clean = raw.replace(/\*/g, '').trim()
-    clean = clean.replace(/(\w+)\^(\d+)/g, '$1^{$2}')
-    if (target === 'y1') return `f(x) = ${clean}`
-    if (target === 'y2') return `f'(x) = ${clean}`
-    if (target === 'y3') return `T(x) = ${clean}`
-    if (target === 'xStar') return `x^* = ${clean}`
-    return clean
-  }
-
   const handleUpdateStep = (id: string, raw: string) => {
     setAlgebraicSteps(prev =>
       prev.map(step => {
         if (step.id !== id) return step
         return {
           ...step,
-          rawExpression: raw,
-          latexExpression: formatRawToLatex(raw, step.targetSlot)
+          rawExpression: raw
         }
       })
     )
@@ -290,9 +351,8 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
       ...prev,
       {
         id: newId,
-        label: 'Recta Tangente T(x)',
-        rawExpression: '12*x - 36',
-        latexExpression: 'T(x) = 12x - 36',
+        label: `Recta Tangente T(${vSymbol})`,
+        rawExpression: '',
         targetSlot: 'y3'
       }
     ])
@@ -311,7 +371,9 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
     const y3Step = algebraicSteps.find(s => s.targetSlot === 'y3')
     const xStarStep = algebraicSteps.find(s => s.targetSlot === 'xStar')
 
-    const parsedXStar = xStarStep ? parseFloat(xStarStep.rawExpression) : undefined
+    const parsedXStar = xStarStep && xStarStep.rawExpression.trim() !== ''
+      ? parseFloat(xStarStep.rawExpression) 
+      : undefined
 
     onSendToCalculator({
       y1: y1Step?.rawExpression,
@@ -460,7 +522,7 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
           </div>
         </div>
 
-        {/* Lista de expresiones KaTeX */}
+        {/* Lista de expresiones KaTeX vinculadas dinámicamente al input */}
         <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
           {algebraicSteps.map((step) => {
             const slotColor = 
@@ -468,6 +530,8 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
               step.targetSlot === 'y2' ? 'text-emerald-700 border-l-4 border-l-emerald-700' :
               step.targetSlot === 'y3' ? 'text-amber-700 border-l-4 border-l-amber-700' :
               'text-purple-700 border-l-4 border-l-purple-700'
+
+            const currentLatex = formatRawToLatex(step.rawExpression, step.targetSlot, vSymbol, fSymbol)
 
             return (
               <div 
@@ -477,7 +541,7 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-[10px] uppercase font-bold text-stone-500">
-                      {step.label} [{step.targetSlot}]
+                      {step.label} [{step.targetSlot.toUpperCase()}]
                     </span>
                     {algebraicSteps.length > 2 && (
                       <button
@@ -495,11 +559,11 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
                       type="text"
                       value={step.rawExpression}
                       onChange={(e) => handleUpdateStep(step.id, e.target.value)}
-                      placeholder="Escribe expresión, ej: -2*x^2 + 24*x"
+                      placeholder={`Escribe fórmula, ej: ${vSymbol === 'x' ? '-2*x^2 + 24*x' : vSymbol === 'q' ? '-3*q^2 + 30*q' : '10*exp(0.5*t)'}`}
                       className="flex-1 px-2 py-1 bg-[#f7f6f2] border border-[#d4d4d0] font-mono text-xs text-stone-900 focus:outline-none focus:border-blue-700"
                     />
-                    <div className="bg-[#faf9f6] px-2 py-1 border border-[#e5e5e0] min-w-[130px] flex items-center justify-center">
-                      <LatexRenderer latex={step.latexExpression} className="text-xs" />
+                    <div className="bg-[#faf9f6] px-2 py-1 border border-[#e5e5e0] min-w-[130px] flex items-center justify-center overflow-x-auto">
+                      <LatexRenderer latex={currentLatex} className="text-xs" />
                     </div>
                   </div>
                 </div>

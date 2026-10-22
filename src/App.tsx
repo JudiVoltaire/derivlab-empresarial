@@ -149,7 +149,11 @@ export default function App() {
         
         {/* Renderizado Condicional: MODO LIBRE vs MODOS RETO/DOCENTE */}
         {appMode === 'libre' ? (
-          <FreeMode currentProblem={currentProblem} />
+          <FreeMode 
+            currentProblem={currentProblem}
+            onSelectProblem={handleSelectProblem}
+            problemsList={problemsList}
+          />
         ) : (
           <>
             {/* Cabecera Técnica del Problema Activo */}
